@@ -1,4 +1,6 @@
-package org.nashinnov8.multitrack.domain;
+package org.nashinnov8.multitrack.tracking.domain;
+
+import org.nashinnov8.multitrack.common.domain.BaseEntity;
 
 import jakarta.persistence.*;
 import lombok.*;

@@ -1,4 +1,8 @@
-package org.nashinnov8.multitrack.domain;
+package org.nashinnov8.multitrack.user.domain;
+
+import org.nashinnov8.multitrack.common.domain.BaseEntity;
+import org.nashinnov8.multitrack.gamification.domain.UserBadge;
+import org.nashinnov8.multitrack.tracking.domain.Track;
 
 import jakarta.persistence.*;
 import lombok.*;

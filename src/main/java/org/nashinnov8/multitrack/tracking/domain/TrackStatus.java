@@ -1,4 +1,4 @@
-package org.nashinnov8.multitrack.domain;
+package org.nashinnov8.multitrack.tracking.domain;
 
 public enum TrackStatus {
     ACTIVE,

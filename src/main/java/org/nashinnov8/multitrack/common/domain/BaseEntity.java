@@ -1,4 +1,4 @@
-package org.nashinnov8.multitrack.domain;
+package org.nashinnov8.multitrack.common.domain;
 
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
