@@ -1,12 +1,16 @@
 package org.nashinnov8.multitrack.common.exception;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
+import java.util.Map;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ErrorResponse(
+    Instant timestamp,
     int status,
     String error,
     String message,
-    Instant timestamp
-) {
-
-}
+    String path,
+    String traceId,
+    Map<String, String> errors
+) {}
