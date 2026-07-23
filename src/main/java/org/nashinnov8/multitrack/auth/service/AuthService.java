@@ -1,12 +1,15 @@
 package org.nashinnov8.multitrack.auth.service;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
+import org.nashinnov8.multitrack.auth.domain.RefreshToken;
 import org.nashinnov8.multitrack.auth.dto.AuthRequest;
 import org.nashinnov8.multitrack.auth.dto.AuthResponse;
+import org.nashinnov8.multitrack.auth.dto.RefreshTokenRequest;
 import org.nashinnov8.multitrack.auth.dto.RegisterRequest;
+import org.nashinnov8.multitrack.auth.repository.RefreshTokenRepository;
+import org.nashinnov8.multitrack.common.exception.InvalidRefreshTokenException;
 import org.nashinnov8.multitrack.common.exception.UserNotFoundException;
 import org.nashinnov8.multitrack.common.jwt.JwtProperties;
 import org.nashinnov8.multitrack.user.domain.User;
@@ -26,6 +29,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     private final JwtProperties jwtProperties;
 
@@ -47,7 +51,8 @@ public class AuthService {
         userRepository.save(user);
 
         String token = generateToken(user);
-        return new AuthResponse(token, user.getUsername());
+        String refreshToken = generateRefreshToken(user);
+        return new AuthResponse(token, refreshToken, user.getUsername());
     }
 
     public AuthResponse login(AuthRequest request) {
@@ -59,8 +64,34 @@ public class AuthService {
 
         User user = userOptional.get();
         String token = generateToken(user);
+        String refreshToken = generateRefreshToken(user);
         
-        return new AuthResponse(token, user.getUsername());
+        return new AuthResponse(token, refreshToken, user.getUsername());
+    }
+
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        Optional<RefreshToken> refreshTokenOptional = refreshTokenRepository.findByToken(request.refreshToken());
+
+        if (refreshTokenOptional.isEmpty() || refreshTokenOptional.get().isRevoked()) {
+            throw new InvalidRefreshTokenException("Invalid refresh Token");
+        }
+
+        RefreshToken oldToken = refreshTokenOptional.get();
+
+        if (oldToken.getExpiryDate().isBefore(Instant.now())) {
+            throw new InvalidRefreshTokenException("Refresh token has expired");
+        }
+
+        // Revoke the old token (Refresh Token Rotation)
+        oldToken.setRevoked(true);
+        refreshTokenRepository.save(oldToken);
+
+        // Generate new tokens
+        User user = oldToken.getUser();
+        String newToken = generateToken(user);
+        String newRefreshToken = generateRefreshToken(user);
+
+        return new AuthResponse(newToken, newRefreshToken, user.getUsername());
     }
 
     private String generateToken(User user) {
@@ -80,5 +111,21 @@ public class AuthService {
                 .build();
                 
         return this.jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+    }
+
+    private String generateRefreshToken(User user) {
+        long expirationSeconds = jwtProperties.refreshTokenExpirationSeconds() != null 
+                ? jwtProperties.refreshTokenExpirationSeconds() 
+                : 2592000L;
+                
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .token(java.util.UUID.randomUUID().toString())
+                .expiryDate(Instant.now().plusSeconds(expirationSeconds))
+                .revoked(false)
+                .build();
+                
+        refreshTokenRepository.save(refreshToken);
+        return refreshToken.getToken();
     }
 }

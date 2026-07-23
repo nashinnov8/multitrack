@@ -22,7 +22,11 @@ public class RefreshToken extends BaseEntity {
     @Column(nullable = false)
     private Instant expiryDate;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean revoked = false;
 }
