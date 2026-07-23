@@ -1,6 +1,7 @@
 package org.nashinnov8.multitrack.tracking.service;
 
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
+import org.nashinnov8.multitrack.tracking.domain.ActivityLog;
 import org.nashinnov8.multitrack.tracking.domain.Track;
 import org.nashinnov8.multitrack.tracking.repository.ActivityLogRepository;
 import org.nashinnov8.multitrack.tracking.repository.TrackRepository;
@@ -23,13 +24,15 @@ public class TrackService {
     private final TrackRepository trackRepository;
     private final ActivityLogRepository activityLogRepository;
     private final UserRepository userRepository;
+    private final org.nashinnov8.multitrack.tracking.repository.ConceptRepository conceptRepository;
 
     // Dependency Injection thông qua Constructor
     public TrackService(TrackRepository trackRepository, ActivityLogRepository activityLogRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository, org.nashinnov8.multitrack.tracking.repository.ConceptRepository conceptRepository) {
         this.trackRepository = trackRepository;
         this.activityLogRepository = activityLogRepository;
         this.userRepository = userRepository;
+        this.conceptRepository = conceptRepository;
     }
 
     @Transactional
@@ -64,16 +67,41 @@ public class TrackService {
 
     @Transactional
     public ActivityLogResponse logActivity(UUID trackId, ActivityLogRequest request) {
-        // TODO 1: Lấy Track ra từ DB thông qua trackRepository.findById(trackId) (chứ không gọi hàm getTrackById ở trên vì nó trả về Response).
-        // TODO 2: Tạo một ActivityLog mới, set nội dung bằng request.note() và set Track tương ứng.
-        // TODO 3: Lưu ActivityLog thông qua activityLogRepository.save().
-        // TODO 4: Cập nhật biến lastActivityAt của Track thành thời điểm hiện tại (Instant.now()).
-        // TODO 5: (Nâng cao) Tính toán lại currentStreak (chuỗi ngày liên tục). 
-        //         So sánh lastActivityAt cũ với hôm nay để xem có bị đứt chuỗi không.
-        // TODO 6: (Nâng cao) Cập nhật longestStreak nếu currentStreak mới lớn hơn.
-        // TODO 7: Lưu lại Track đã được cập nhật thông qua trackRepository.save().
-        // TODO 8: Map ActivityLog vừa lưu sang ActivityLogResponse và trả về.
-        return null;
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        org.nashinnov8.multitrack.tracking.domain.Concept concept = null;
+        if (request.conceptId() != null) {
+            concept = conceptRepository.findById(request.conceptId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Concept not found with id: " + request.conceptId()));
+        }
+
+        ActivityLog newLog = ActivityLog.builder()
+                .track(track)
+                .concept(concept)
+                .note(request.note())
+                .whatLearned(request.whatLearned())
+                .explainSimply(request.explainSimply())
+                .gapsFound(request.gapsFound())
+                .expEarned(10)
+                .build();
+
+        ActivityLog savedLog = activityLogRepository.save(newLog);
+
+        track.setLastActivityAt(java.time.Instant.now());
+        trackRepository.save(track);
+
+        return ActivityLogResponse.from(savedLog);
+    }
+
+    public List<ActivityLogResponse> getGaps(UUID trackId) {
+        if (!trackRepository.existsById(trackId)) {
+            throw new ResourceNotFoundException("Track not found with id: " + trackId);
+        }
+        return activityLogRepository.findGapsByTrackId(trackId)
+                .stream()
+                .map(ActivityLogResponse::from)
+                .toList();
     }
 
     public List<TrackResponse> findStaleTracks() {

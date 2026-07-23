@@ -56,4 +56,10 @@ public class TrackController {
         List<TrackResponse> tracks = trackService.findStaleTracks();
         return ResponseEntity.ok(new ApiResponse<>("Stale tracks retrieved successfully", tracks));
     }
+
+    @GetMapping("/{id}/gaps")
+    public ResponseEntity<ApiResponse<List<ActivityLogResponse>>> getTrackGaps(@PathVariable UUID id) {
+        List<ActivityLogResponse> gaps = trackService.getGaps(id);
+        return ResponseEntity.ok(new ApiResponse<>("Gaps retrieved successfully", gaps));
+    }
 }
