@@ -2,6 +2,7 @@ package org.nashinnov8.multitrack.auth.controller;
 
 import org.nashinnov8.multitrack.auth.dto.AuthRequest;
 import org.nashinnov8.multitrack.auth.dto.AuthResponse;
+import org.nashinnov8.multitrack.auth.dto.RefreshTokenRequest;
 import org.nashinnov8.multitrack.auth.dto.RegisterRequest;
 import org.nashinnov8.multitrack.auth.service.AuthService;
 import org.nashinnov8.multitrack.common.dto.ApiResponse;
@@ -30,5 +31,11 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody AuthRequest request) {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(new ApiResponse<>("Login successful", response));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(@RequestBody RefreshTokenRequest request) {
+        AuthResponse response = authService.refreshToken(request);
+        return ResponseEntity.ok(new ApiResponse<>("Refresh token successful", response));
     }
 }
