@@ -18,8 +18,21 @@ public class ActivityLog extends BaseEntity {
     @JoinColumn(name = "track_id", nullable = false)
     private Track track;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "concept_id")
+    private Concept concept;
+
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    @Column(columnDefinition = "TEXT")
+    private String whatLearned;
+
+    @Column(columnDefinition = "TEXT")
+    private String explainSimply;
+
+    @Column(columnDefinition = "TEXT")
+    private String gapsFound;
 
     private Integer duration;
 
