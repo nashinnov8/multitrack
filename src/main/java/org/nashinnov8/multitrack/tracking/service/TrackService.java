@@ -2,6 +2,7 @@ package org.nashinnov8.multitrack.tracking.service;
 
 import java.util.List;
 import java.util.UUID;
+import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
 import org.nashinnov8.multitrack.tracking.domain.ActivityLog;
 import org.nashinnov8.multitrack.tracking.domain.Track;
@@ -14,6 +15,10 @@ import org.nashinnov8.multitrack.tracking.repository.ConceptRepository;
 import org.nashinnov8.multitrack.tracking.repository.TrackRepository;
 import org.nashinnov8.multitrack.user.domain.User;
 import org.nashinnov8.multitrack.user.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,6 +74,14 @@ public class TrackService {
     return TrackResponse.fromList(existingTracks);
   }
 
+  public PaginatedResponse<TrackResponse> getAllTracksForUser(UUID userId, int page, int size) {
+    Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+    Page<TrackResponse> pageResult = trackRepository
+        .findByUserId(userId, pageable)
+        .map(TrackResponse::from);
+    return PaginatedResponse.from(pageResult);
+  }
+
   @Transactional
   public ActivityLogResponse logActivity(UUID trackId, ActivityLogRequest request) {
     Track track = trackRepository
@@ -110,6 +123,17 @@ public class TrackService {
     return activityLogRepository.findGapsByTrackId(trackId).stream()
         .map(ActivityLogResponse::from)
         .toList();
+  }
+
+  public PaginatedResponse<ActivityLogResponse> getGaps(UUID trackId, int page, int size) {
+    if (!trackRepository.existsById(trackId)) {
+      throw new ResourceNotFoundException("Track not found with id: " + trackId);
+    }
+    Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+    Page<ActivityLogResponse> pageResult = activityLogRepository
+        .findGapsByTrackId(trackId, pageable)
+        .map(ActivityLogResponse::from);
+    return PaginatedResponse.from(pageResult);
   }
 
   public List<TrackResponse> findStaleTracks() {

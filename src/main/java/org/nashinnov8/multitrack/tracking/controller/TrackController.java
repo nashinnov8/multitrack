@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.nashinnov8.multitrack.common.dto.ApiResponse;
+import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.tracking.dto.request.ActivityLogRequest;
 import org.nashinnov8.multitrack.tracking.dto.request.TrackCreateRequest;
 import org.nashinnov8.multitrack.tracking.dto.response.ActivityLogResponse;
@@ -43,6 +44,15 @@ public class TrackController {
     return ResponseEntity.ok(new ApiResponse<>("User tracks retrieved successfully", tracks));
   }
 
+  @GetMapping("/user/{userId}/paged")
+  public ResponseEntity<ApiResponse<PaginatedResponse<TrackResponse>>> getUserTracksPaged(
+      @PathVariable UUID userId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size) {
+    PaginatedResponse<TrackResponse> tracks = trackService.getAllTracksForUser(userId, page, size);
+    return ResponseEntity.ok(new ApiResponse<>("User tracks retrieved successfully", tracks));
+  }
+
   @PostMapping("/{id}/checkin")
   public ResponseEntity<ApiResponse<ActivityLogResponse>> checkIn(
       @PathVariable UUID id, @Valid @RequestBody ActivityLogRequest request) {
@@ -60,6 +70,15 @@ public class TrackController {
   public ResponseEntity<ApiResponse<List<ActivityLogResponse>>> getTrackGaps(
       @PathVariable UUID id) {
     List<ActivityLogResponse> gaps = trackService.getGaps(id);
+    return ResponseEntity.ok(new ApiResponse<>("Gaps retrieved successfully", gaps));
+  }
+
+  @GetMapping("/{id}/gaps/paged")
+  public ResponseEntity<ApiResponse<PaginatedResponse<ActivityLogResponse>>> getTrackGapsPaged(
+      @PathVariable UUID id,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size) {
+    PaginatedResponse<ActivityLogResponse> gaps = trackService.getGaps(id, page, size);
     return ResponseEntity.ok(new ApiResponse<>("Gaps retrieved successfully", gaps));
   }
 }
