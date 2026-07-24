@@ -1,10 +1,14 @@
 package org.nashinnov8.multitrack.tracking.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
 import org.nashinnov8.multitrack.tracking.domain.ActivityLog;
+import org.nashinnov8.multitrack.tracking.domain.Concept;
 import org.nashinnov8.multitrack.tracking.domain.Track;
 import org.nashinnov8.multitrack.tracking.dto.request.ActivityLogRequest;
 import org.nashinnov8.multitrack.tracking.dto.request.TrackCreateRequest;
@@ -89,7 +93,7 @@ public class TrackService {
         .orElseThrow(
             () -> new ResourceNotFoundException("Track not found with id: " + trackId));
 
-    org.nashinnov8.multitrack.tracking.domain.Concept concept = null;
+    Concept concept = null;
     if (request.conceptId() != null) {
       concept = conceptRepository
           .findById(request.conceptId())
@@ -98,20 +102,46 @@ public class TrackService {
                   "Concept not found with id: " + request.conceptId()));
     }
 
+    // 1. TÍNH TOÁN STREAK DỰA TRÊN DỮ LIỆU CŨ (TRƯỚC KHI CẬP NHẬT)
+    User user = track.getUser();
+    ZoneId userZone = ZoneId.of(user.getTimezone()); // Dùng timezone của User
+    LocalDate today = LocalDate.now(userZone);
+    LocalDate lastDate = track.getLastActivityAt() != null
+            ? track.getLastActivityAt().atZone(userZone).toLocalDate()
+            : null;
+
+    if (lastDate == null || lastDate.equals(today.minusDays(1))) {
+        // Mới chơi, hoặc hôm qua vừa chơi -> Tăng streak
+        track.setCurrentStreak(track.getCurrentStreak() + 1);
+    } else if (!lastDate.equals(today)) {
+        // Bỏ bê quá 1 ngày -> Reset về 1
+        track.setCurrentStreak(1);
+    }
+
+    // Cập nhật kỷ lục streak dài nhất
+    track.setLongestStreak(Math.max(track.getLongestStreak(), track.getCurrentStreak()));
+
+    // 2. TẠO LOG MỚI
+    int expEarned = 10;
     ActivityLog newLog = ActivityLog.builder()
-        .track(track)
-        .concept(concept)
-        .note(request.note())
-        .whatLearned(request.whatLearned())
-        .explainSimply(request.explainSimply())
-        .gapsFound(request.gapsFound())
-        .expEarned(10)
-        .build();
+            .track(track)
+            .concept(concept)
+            .note(request.note())
+            .whatLearned(request.whatLearned())
+            .explainSimply(request.explainSimply())
+            .gapsFound(request.gapsFound())
+            .expEarned(expEarned)
+            .build();
 
     ActivityLog savedLog = activityLogRepository.save(newLog);
 
+    // 3. CẬP NHẬT DỮ LIỆU LƯU VÀO DB
     track.setLastActivityAt(java.time.Instant.now());
     trackRepository.save(track);
+
+    // Cộng EXP cho user và lưu lại
+    user.setTotalExp(user.getTotalExp() + expEarned);
+    userRepository.save(user);
 
     return ActivityLogResponse.from(savedLog);
   }
