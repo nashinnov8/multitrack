@@ -40,6 +40,7 @@ class UserServiceTest {
                 .totalExp(500)
                 .level(3)
                 .globalStreak(10)
+                .timezone("Asia/Ho_Chi_Minh")
                 .build();
         mockUser.setId(userId);
     }
@@ -63,6 +64,7 @@ class UserServiceTest {
         assertEquals(500, response.totalExp());
         assertEquals(3, response.level());
         assertEquals(10, response.globalStreak());
+        assertEquals("Asia/Ho_Chi_Minh", response.timezone());
         verify(userRepository).findById(userId);
     }
 
@@ -82,7 +84,7 @@ class UserServiceTest {
     @Test
     void updateUser_Success() {
         // Arrange
-        UpdateUserRequest request = new UpdateUserRequest("New Display Name");
+        UpdateUserRequest request = new UpdateUserRequest("New Display Name", "America/New_York");
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
         when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
@@ -91,8 +93,9 @@ class UserServiceTest {
 
         // Assert
         assertNotNull(response);
-        // Verify the displayName was changed on the entity
+        // Verify the displayName and timezone were changed on the entity
         assertEquals("New Display Name", mockUser.getDisplayName());
+        assertEquals("America/New_York", mockUser.getTimezone());
         verify(userRepository).findById(userId);
         verify(userRepository).save(mockUser);
     }
@@ -100,7 +103,7 @@ class UserServiceTest {
     @Test
     void updateUser_Failure_UserNotFound() {
         // Arrange
-        UpdateUserRequest request = new UpdateUserRequest("New Display Name");
+        UpdateUserRequest request = new UpdateUserRequest("New Display Name", null);
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         // Act & Assert

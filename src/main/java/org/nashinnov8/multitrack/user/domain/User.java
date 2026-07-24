@@ -41,6 +41,10 @@ public class User extends BaseEntity {
   @Column(nullable = false)
   private int globalStreak = 0;
 
+  @Builder.Default
+  @Column(nullable = false)
+  private String timezone = "Asia/Ho_Chi_Minh";
+
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
   @Builder.Default
   private List<Track> tracks = new ArrayList<>();
