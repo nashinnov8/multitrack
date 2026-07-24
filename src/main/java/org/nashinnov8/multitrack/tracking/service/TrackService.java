@@ -19,6 +19,7 @@ import org.nashinnov8.multitrack.tracking.repository.ConceptRepository;
 import org.nashinnov8.multitrack.tracking.repository.TrackRepository;
 import org.nashinnov8.multitrack.user.domain.User;
 import org.nashinnov8.multitrack.user.repository.UserRepository;
+import org.nashinnov8.multitrack.user.util.LevelCalculator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -155,6 +156,7 @@ public class TrackService {
 
     // Cộng EXP cho user và lưu lại
     user.setTotalExp(user.getTotalExp() + expEarned);
+    user.setLevel(LevelCalculator.calculateLevel(user.getTotalExp()));
     userRepository.save(user);
 
     return ActivityLogResponse.from(savedLog);
