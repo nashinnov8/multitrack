@@ -12,5 +12,4 @@ public record ErrorResponse(
     String message,
     String path,
     String traceId,
-    Map<String, String> errors
-) {}
+    Map<String, String> errors) {}

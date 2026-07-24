@@ -9,8 +9,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication
 public class MultitrackApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(MultitrackApplication.class, args);
-    }
-
+  public static void main(String[] args) {
+    SpringApplication.run(MultitrackApplication.class, args);
+  }
 }

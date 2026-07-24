@@ -21,5 +21,5 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Run tests
-        run: mvn -B test
+      - name: Run tests and verify formatting
+        run: mvn -B verify
