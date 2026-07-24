@@ -1,6 +1,7 @@
 package org.nashinnov8.multitrack.tracking.dto.response;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.nashinnov8.multitrack.tracking.domain.Track;
 
@@ -27,5 +28,11 @@ public record TrackResponse(
         track.getCurrentStreak(),
         track.getLongestStreak(),
         track.getStatus().name());
+  }
+
+  public static List<TrackResponse> fromList(List<Track> tracks) {
+    return tracks.stream()
+        .map(track -> from(track))
+        .toList();
   }
 }
