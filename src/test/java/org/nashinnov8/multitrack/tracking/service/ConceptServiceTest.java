@@ -21,6 +21,8 @@ import org.nashinnov8.multitrack.tracking.dto.request.ConceptRequest;
 import org.nashinnov8.multitrack.tracking.dto.response.ConceptResponse;
 import org.nashinnov8.multitrack.tracking.repository.ConceptRepository;
 import org.nashinnov8.multitrack.tracking.repository.TrackRepository;
+import org.nashinnov8.multitrack.user.domain.User;
+import org.nashinnov8.multitrack.common.exception.ForbiddenException;
 
 @ExtendWith(MockitoExtension.class)
 class ConceptServiceTest {
@@ -30,17 +32,23 @@ class ConceptServiceTest {
 
     @InjectMocks private ConceptService conceptService;
 
+    private User mockUser;
     private Track mockTrack;
     private Concept mockConcept;
     private UUID trackId;
     private UUID conceptId;
+    private UUID userId;
 
     @BeforeEach
     void setUp() {
         trackId = UUID.randomUUID();
         conceptId = UUID.randomUUID();
+        userId = UUID.randomUUID();
 
-        mockTrack = Track.builder().name("Java Mastery").build();
+        mockUser = User.builder().username("testuser").build();
+        mockUser.setId(userId);
+
+        mockTrack = Track.builder().name("Java Mastery").user(mockUser).build();
         mockTrack.setId(trackId);
 
         mockConcept = Concept.builder()
@@ -61,7 +69,7 @@ class ConceptServiceTest {
         when(conceptRepository.save(any(Concept.class))).thenReturn(mockConcept);
 
         // Act
-        ConceptResponse response = conceptService.createConcept(trackId, request);
+        ConceptResponse response = conceptService.createConcept(trackId, request, userId);
 
         // Assert
         assertNotNull(response);
@@ -85,7 +93,7 @@ class ConceptServiceTest {
         when(conceptRepository.save(any(Concept.class))).thenReturn(masteredConcept);
 
         // Act
-        ConceptResponse response = conceptService.createConcept(trackId, request);
+        ConceptResponse response = conceptService.createConcept(trackId, request, userId);
 
         // Assert
         assertEquals("MASTERED", response.status());
@@ -99,7 +107,7 @@ class ConceptServiceTest {
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> conceptService.createConcept(trackId, request));
+                () -> conceptService.createConcept(trackId, request, userId));
         verify(conceptRepository, never()).save(any());
     }
 
@@ -108,11 +116,11 @@ class ConceptServiceTest {
     @Test
     void getConceptsByTrack_Success() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(conceptRepository.findByTrackId(trackId)).thenReturn(List.of(mockConcept));
 
         // Act
-        List<ConceptResponse> responses = conceptService.getConceptsByTrack(trackId);
+        List<ConceptResponse> responses = conceptService.getConceptsByTrack(trackId, userId);
 
         // Assert
         assertEquals(1, responses.size());
@@ -122,11 +130,11 @@ class ConceptServiceTest {
     @Test
     void getConceptsByTrack_Failure_TrackNotFound() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(false);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> conceptService.getConceptsByTrack(trackId));
+                () -> conceptService.getConceptsByTrack(trackId, userId));
     }
 
     // --- updateConcept ---
@@ -135,12 +143,12 @@ class ConceptServiceTest {
     void updateConcept_Success() {
         // Arrange
         ConceptRequest request = new ConceptRequest("Polymorphism Advanced", ConceptStatus.EXPLAINED_WITH_GAPS);
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(conceptRepository.findById(conceptId)).thenReturn(Optional.of(mockConcept));
         when(conceptRepository.save(any(Concept.class))).thenReturn(mockConcept);
 
         // Act
-        ConceptResponse response = conceptService.updateConcept(trackId, conceptId, request);
+        ConceptResponse response = conceptService.updateConcept(trackId, conceptId, request, userId);
 
         // Assert
         assertNotNull(response);
@@ -151,12 +159,12 @@ class ConceptServiceTest {
     void updateConcept_Failure_ConceptNotFound() {
         // Arrange
         ConceptRequest request = new ConceptRequest("Polymorphism", null);
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(conceptRepository.findById(conceptId)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> conceptService.updateConcept(trackId, conceptId, request));
+                () -> conceptService.updateConcept(trackId, conceptId, request, userId));
     }
 
     // --- deleteConcept ---
@@ -164,11 +172,11 @@ class ConceptServiceTest {
     @Test
     void deleteConcept_Success() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(conceptRepository.existsById(conceptId)).thenReturn(true);
 
         // Act
-        conceptService.deleteConcept(trackId, conceptId);
+        conceptService.deleteConcept(trackId, conceptId, userId);
 
         // Assert
         verify(conceptRepository).deleteById(conceptId);
@@ -177,12 +185,12 @@ class ConceptServiceTest {
     @Test
     void deleteConcept_Failure_ConceptNotFound() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(conceptRepository.existsById(conceptId)).thenReturn(false);
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> conceptService.deleteConcept(trackId, conceptId));
+                () -> conceptService.deleteConcept(trackId, conceptId, userId));
         verify(conceptRepository, never()).deleteById(any());
     }
 }

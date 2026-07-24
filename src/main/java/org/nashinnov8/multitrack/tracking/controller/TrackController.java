@@ -12,6 +12,8 @@ import org.nashinnov8.multitrack.tracking.dto.response.TrackResponse;
 import org.nashinnov8.multitrack.tracking.service.TrackService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,21 +28,29 @@ public class TrackController {
 
   @PostMapping
   public ResponseEntity<ApiResponse<TrackResponse>> createTrack(
-      @Valid @RequestBody TrackCreateRequest request) {
-    TrackResponse track = trackService.createTrack(request);
+      @Valid @RequestBody TrackCreateRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    TrackResponse track = trackService.createTrack(request, currentUserId);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(new ApiResponse<>("Track created successfully", track));
   }
 
   @GetMapping("/{id}")
-  public ResponseEntity<ApiResponse<TrackResponse>> getTrack(@PathVariable UUID id) {
-    TrackResponse track = trackService.getTrackById(id);
+  public ResponseEntity<ApiResponse<TrackResponse>> getTrack(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    TrackResponse track = trackService.getTrackById(id, currentUserId);
     return ResponseEntity.ok(new ApiResponse<>("Track retrieved successfully", track));
   }
 
   @GetMapping("/user/{userId}")
-  public ResponseEntity<ApiResponse<List<TrackResponse>>> getUserTracks(@PathVariable UUID userId) {
-    List<TrackResponse> tracks = trackService.getAllTracksForUser(userId);
+  public ResponseEntity<ApiResponse<List<TrackResponse>>> getUserTracks(
+      @PathVariable UUID userId,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    List<TrackResponse> tracks = trackService.getAllTracksForUser(userId, currentUserId);
     return ResponseEntity.ok(new ApiResponse<>("User tracks retrieved successfully", tracks));
   }
 
@@ -48,15 +58,20 @@ public class TrackController {
   public ResponseEntity<ApiResponse<PaginatedResponse<TrackResponse>>> getUserTracksPaged(
       @PathVariable UUID userId,
       @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size) {
-    PaginatedResponse<TrackResponse> tracks = trackService.getAllTracksForUser(userId, page, size);
+      @RequestParam(defaultValue = "10") int size,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    PaginatedResponse<TrackResponse> tracks = trackService.getAllTracksForUser(userId, page, size, currentUserId);
     return ResponseEntity.ok(new ApiResponse<>("User tracks retrieved successfully", tracks));
   }
 
   @PostMapping("/{id}/checkin")
   public ResponseEntity<ApiResponse<ActivityLogResponse>> checkIn(
-      @PathVariable UUID id, @Valid @RequestBody ActivityLogRequest request) {
-    ActivityLogResponse log = trackService.logActivity(id, request);
+      @PathVariable UUID id, 
+      @Valid @RequestBody ActivityLogRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    ActivityLogResponse log = trackService.logActivity(id, request, currentUserId);
     return ResponseEntity.ok(new ApiResponse<>("Check-in successful", log));
   }
 
@@ -68,8 +83,10 @@ public class TrackController {
 
   @GetMapping("/{id}/gaps")
   public ResponseEntity<ApiResponse<List<ActivityLogResponse>>> getTrackGaps(
-      @PathVariable UUID id) {
-    List<ActivityLogResponse> gaps = trackService.getGaps(id);
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    List<ActivityLogResponse> gaps = trackService.getGaps(id, currentUserId);
     return ResponseEntity.ok(new ApiResponse<>("Gaps retrieved successfully", gaps));
   }
 
@@ -77,8 +94,10 @@ public class TrackController {
   public ResponseEntity<ApiResponse<PaginatedResponse<ActivityLogResponse>>> getTrackGapsPaged(
       @PathVariable UUID id,
       @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size) {
-    PaginatedResponse<ActivityLogResponse> gaps = trackService.getGaps(id, page, size);
+      @RequestParam(defaultValue = "10") int size,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    PaginatedResponse<ActivityLogResponse> gaps = trackService.getGaps(id, page, size, currentUserId);
     return ResponseEntity.ok(new ApiResponse<>("Gaps retrieved successfully", gaps));
   }
 }

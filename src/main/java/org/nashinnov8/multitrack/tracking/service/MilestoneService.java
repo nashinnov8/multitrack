@@ -2,6 +2,7 @@ package org.nashinnov8.multitrack.tracking.service;
 
 import java.util.List;
 import java.util.UUID;
+import org.nashinnov8.multitrack.common.exception.ForbiddenException;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
 import org.nashinnov8.multitrack.tracking.domain.Milestone;
 import org.nashinnov8.multitrack.tracking.domain.Track;
@@ -24,10 +25,14 @@ public class MilestoneService {
     }
 
     @Transactional
-    public MilestoneResponse createMilestone(UUID trackId, MilestoneRequest request) {
+    public MilestoneResponse createMilestone(UUID trackId, MilestoneRequest request, UUID currentUserId) {
         Track track = trackRepository
                 .findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to modify this track");
+        }
 
         Milestone milestone = Milestone.builder()
                 .track(track)
@@ -39,17 +44,25 @@ public class MilestoneService {
         return MilestoneResponse.from(milestoneRepository.save(milestone));
     }
 
-    public List<MilestoneResponse> getMilestonesByTrack(UUID trackId) {
-        if (!trackRepository.existsById(trackId)) {
-            throw new ResourceNotFoundException("Track not found with id: " + trackId);
+    public List<MilestoneResponse> getMilestonesByTrack(UUID trackId, UUID currentUserId) {
+        Track track = trackRepository
+                .findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to view these milestones");
         }
         return MilestoneResponse.fromList(milestoneRepository.findByTrackId(trackId));
     }
 
     @Transactional
-    public MilestoneResponse updateMilestone(UUID trackId, UUID milestoneId, MilestoneRequest request) {
-        if (!trackRepository.existsById(trackId)) {
-            throw new ResourceNotFoundException("Track not found with id: " + trackId);
+    public MilestoneResponse updateMilestone(UUID trackId, UUID milestoneId, MilestoneRequest request, UUID currentUserId) {
+        Track track = trackRepository
+                .findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to modify this track");
         }
 
         Milestone milestone = milestoneRepository
@@ -64,9 +77,13 @@ public class MilestoneService {
     }
 
     @Transactional
-    public void deleteMilestone(UUID trackId, UUID milestoneId) {
-        if (!trackRepository.existsById(trackId)) {
-            throw new ResourceNotFoundException("Track not found with id: " + trackId);
+    public void deleteMilestone(UUID trackId, UUID milestoneId, UUID currentUserId) {
+        Track track = trackRepository
+                .findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to modify this track");
         }
 
         if (!milestoneRepository.existsById(milestoneId)) {

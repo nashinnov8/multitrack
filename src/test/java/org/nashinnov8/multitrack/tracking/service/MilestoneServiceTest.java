@@ -20,6 +20,8 @@ import org.nashinnov8.multitrack.tracking.dto.request.MilestoneRequest;
 import org.nashinnov8.multitrack.tracking.dto.response.MilestoneResponse;
 import org.nashinnov8.multitrack.tracking.repository.MilestoneRepository;
 import org.nashinnov8.multitrack.tracking.repository.TrackRepository;
+import org.nashinnov8.multitrack.user.domain.User;
+import org.nashinnov8.multitrack.common.exception.ForbiddenException;
 
 @ExtendWith(MockitoExtension.class)
 class MilestoneServiceTest {
@@ -29,17 +31,23 @@ class MilestoneServiceTest {
 
     @InjectMocks private MilestoneService milestoneService;
 
+    private User mockUser;
     private Track mockTrack;
     private Milestone mockMilestone;
     private UUID trackId;
     private UUID milestoneId;
+    private UUID userId;
 
     @BeforeEach
     void setUp() {
         trackId = UUID.randomUUID();
         milestoneId = UUID.randomUUID();
+        userId = UUID.randomUUID();
 
-        mockTrack = Track.builder().name("Java Mastery").build();
+        mockUser = User.builder().username("testuser").build();
+        mockUser.setId(userId);
+
+        mockTrack = Track.builder().name("Java Mastery").user(mockUser).build();
         mockTrack.setId(trackId);
 
         mockMilestone = Milestone.builder()
@@ -61,7 +69,7 @@ class MilestoneServiceTest {
         when(milestoneRepository.save(any(Milestone.class))).thenReturn(mockMilestone);
 
         // Act
-        MilestoneResponse response = milestoneService.createMilestone(trackId, request);
+        MilestoneResponse response = milestoneService.createMilestone(trackId, request, userId);
 
         // Assert
         assertNotNull(response);
@@ -79,7 +87,7 @@ class MilestoneServiceTest {
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> milestoneService.createMilestone(trackId, request));
+                () -> milestoneService.createMilestone(trackId, request, userId));
         verify(milestoneRepository, never()).save(any());
     }
 
@@ -88,11 +96,11 @@ class MilestoneServiceTest {
     @Test
     void getMilestonesByTrack_Success() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(milestoneRepository.findByTrackId(trackId)).thenReturn(List.of(mockMilestone));
 
         // Act
-        List<MilestoneResponse> responses = milestoneService.getMilestonesByTrack(trackId);
+        List<MilestoneResponse> responses = milestoneService.getMilestonesByTrack(trackId, userId);
 
         // Assert
         assertNotNull(responses);
@@ -103,11 +111,11 @@ class MilestoneServiceTest {
     @Test
     void getMilestonesByTrack_Failure_TrackNotFound() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(false);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> milestoneService.getMilestonesByTrack(trackId));
+                () -> milestoneService.getMilestonesByTrack(trackId, userId));
     }
 
     // --- updateMilestone ---
@@ -116,12 +124,12 @@ class MilestoneServiceTest {
     void updateMilestone_Success() {
         // Arrange
         MilestoneRequest request = new MilestoneRequest("Learn Generics - Updated", "Deep dive", true);
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(milestoneRepository.findById(milestoneId)).thenReturn(Optional.of(mockMilestone));
         when(milestoneRepository.save(any(Milestone.class))).thenReturn(mockMilestone);
 
         // Act
-        MilestoneResponse response = milestoneService.updateMilestone(trackId, milestoneId, request);
+        MilestoneResponse response = milestoneService.updateMilestone(trackId, milestoneId, request, userId);
 
         // Assert
         assertNotNull(response);
@@ -132,12 +140,12 @@ class MilestoneServiceTest {
     void updateMilestone_Failure_MilestoneNotFound() {
         // Arrange
         MilestoneRequest request = new MilestoneRequest("Updated", null, true);
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(milestoneRepository.findById(milestoneId)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> milestoneService.updateMilestone(trackId, milestoneId, request));
+                () -> milestoneService.updateMilestone(trackId, milestoneId, request, userId));
     }
 
     // --- deleteMilestone ---
@@ -145,11 +153,11 @@ class MilestoneServiceTest {
     @Test
     void deleteMilestone_Success() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(milestoneRepository.existsById(milestoneId)).thenReturn(true);
 
         // Act
-        milestoneService.deleteMilestone(trackId, milestoneId);
+        milestoneService.deleteMilestone(trackId, milestoneId, userId);
 
         // Assert
         verify(milestoneRepository).deleteById(milestoneId);
@@ -158,12 +166,12 @@ class MilestoneServiceTest {
     @Test
     void deleteMilestone_Failure_MilestoneNotFound() {
         // Arrange
-        when(trackRepository.existsById(trackId)).thenReturn(true);
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(mockTrack));
         when(milestoneRepository.existsById(milestoneId)).thenReturn(false);
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class,
-                () -> milestoneService.deleteMilestone(trackId, milestoneId));
+                () -> milestoneService.deleteMilestone(trackId, milestoneId, userId));
         verify(milestoneRepository, never()).deleteById(any());
     }
 }
