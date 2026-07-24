@@ -96,7 +96,6 @@ public class AuthService {
 
     private String generateToken(User user) {
         Instant now = Instant.now();
-        // Lấy thời gian sống từ cấu hình, mặc định 86400s (24h) nếu chưa có cấu hình
         long expirationSeconds = jwtProperties.accessTokenExpirationSeconds() != null 
                 ? jwtProperties.accessTokenExpirationSeconds() 
                 : 86400L;

@@ -34,3 +34,7 @@ build/
 
 ### Keys ###
 src/main/resources/keys/*.pem
+
+### Environment Variables ###
+.env*
+!.env.example
