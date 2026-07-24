@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import java.util.Optional;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,86 +28,91 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
-  @Mock private UserRepository userRepository;
+    @Mock
+    private UserRepository userRepository;
+    
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
-  @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
-  @Mock private PasswordEncoder passwordEncoder;
+    @Mock
+    private JwtEncoder jwtEncoder;
 
-  @Mock private JwtEncoder jwtEncoder;
+    @Mock
+    private JwtProperties jwtProperties;
 
-  @Mock private JwtProperties jwtProperties;
+    @InjectMocks
+    private AuthService authService;
 
-  @InjectMocks private AuthService authService;
+    private User mockUser;
 
-  private User mockUser;
+    @BeforeEach
+    void setUp() {
+        mockUser = User.builder()
+                .email("test@example.com")
+                .password("encodedPassword")
+                .username("testuser")
+                .build();
+        mockUser.setId(UUID.randomUUID());
+    }
 
-  @BeforeEach
-  void setUp() {
-    mockUser =
-        User.builder()
-            .email("test@example.com")
-            .password("encodedPassword")
-            .username("testuser")
-            .build();
-    mockUser.setId(java.util.UUID.randomUUID());
-  }
+    @Test
+    void login_Success() {
+        // Arrange
+        AuthRequest request = new AuthRequest("test@example.com", "password123");
+        
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(mockUser));
+        when(passwordEncoder.matches(request.password(), mockUser.getPassword())).thenReturn(true);
+        when(jwtProperties.accessTokenExpirationSeconds()).thenReturn(3600L);
+        when(jwtProperties.refreshTokenExpirationSeconds()).thenReturn(86400L);
+        
+        Jwt mockJwt = mock(Jwt.class);
+        when(mockJwt.getTokenValue()).thenReturn("mocked-jwt-token");
+        when(jwtEncoder.encode(any())).thenReturn(mockJwt);
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(new RefreshToken());
 
-  @Test
-  void login_Success() {
-    // Arrange
-    AuthRequest request = new AuthRequest("test@example.com", "password123");
+        // Act
+        AuthResponse response = authService.login(request);
 
-    when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(mockUser));
-    when(passwordEncoder.matches(request.password(), mockUser.getPassword())).thenReturn(true);
-    when(jwtProperties.accessTokenExpirationSeconds()).thenReturn(3600L);
-    when(jwtProperties.refreshTokenExpirationSeconds()).thenReturn(86400L);
+        // Assert
+        assertNotNull(response);
+        assertEquals("testuser", response.username());
+        assertEquals("mocked-jwt-token", response.token());
+        assertNotNull(response.refreshToken());
+        
+        verify(userRepository).findByEmail(request.email());
+        verify(passwordEncoder).matches(request.password(), mockUser.getPassword());
+        verify(jwtEncoder).encode(any());
+        verify(refreshTokenRepository).save(any());
+    }
 
-    Jwt mockJwt = mock(Jwt.class);
-    when(mockJwt.getTokenValue()).thenReturn("mocked-jwt-token");
-    when(jwtEncoder.encode(any())).thenReturn(mockJwt);
-    when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(new RefreshToken());
+    @Test
+    void login_Failure_UserNotFound() {
+        // Arrange
+        AuthRequest request = new AuthRequest("wrong@example.com", "password123");
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.empty());
 
-    // Act
-    AuthResponse response = authService.login(request);
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> authService.login(request));
+        
+        verify(userRepository).findByEmail(request.email());
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
 
-    // Assert
-    assertNotNull(response);
-    assertEquals("testuser", response.username());
-    assertEquals("mocked-jwt-token", response.token());
-    assertNotNull(response.refreshToken());
+    @Test
+    void login_Failure_WrongPassword() {
+        // Arrange
+        AuthRequest request = new AuthRequest("test@example.com", "wrongpassword");
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(mockUser));
+        when(passwordEncoder.matches(request.password(), mockUser.getPassword())).thenReturn(false);
 
-    verify(userRepository).findByEmail(request.email());
-    verify(passwordEncoder).matches(request.password(), mockUser.getPassword());
-    verify(jwtEncoder).encode(any());
-    verify(refreshTokenRepository).save(any());
-  }
-
-  @Test
-  void login_Failure_UserNotFound() {
-    // Arrange
-    AuthRequest request = new AuthRequest("wrong@example.com", "password123");
-    when(userRepository.findByEmail(request.email())).thenReturn(Optional.empty());
-
-    // Act & Assert
-    assertThrows(UserNotFoundException.class, () -> authService.login(request));
-
-    verify(userRepository).findByEmail(request.email());
-    verify(passwordEncoder, never()).matches(anyString(), anyString());
-  }
-
-  @Test
-  void login_Failure_WrongPassword() {
-    // Arrange
-    AuthRequest request = new AuthRequest("test@example.com", "wrongpassword");
-    when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(mockUser));
-    when(passwordEncoder.matches(request.password(), mockUser.getPassword())).thenReturn(false);
-
-    // Act & Assert
-    assertThrows(UserNotFoundException.class, () -> authService.login(request));
-
-    verify(userRepository).findByEmail(request.email());
-    verify(passwordEncoder).matches(request.password(), mockUser.getPassword());
-    verify(jwtEncoder, never()).encode(any());
-  }
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> authService.login(request));
+        
+        verify(userRepository).findByEmail(request.email());
+        verify(passwordEncoder).matches(request.password(), mockUser.getPassword());
+        verify(jwtEncoder, never()).encode(any());
+    }
 }

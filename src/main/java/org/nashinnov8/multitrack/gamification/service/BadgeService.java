@@ -3,6 +3,7 @@ package org.nashinnov8.multitrack.gamification.service;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
 import org.nashinnov8.multitrack.gamification.domain.Badge;
 import org.nashinnov8.multitrack.gamification.domain.UserBadge;
@@ -13,6 +14,9 @@ import org.nashinnov8.multitrack.gamification.repository.BadgeRepository;
 import org.nashinnov8.multitrack.gamification.repository.UserBadgeRepository;
 import org.nashinnov8.multitrack.user.domain.User;
 import org.nashinnov8.multitrack.user.repository.UserRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +38,11 @@ public class BadgeService {
 
     public List<BadgeResponse> getAllBadges() {
         return BadgeResponse.fromList(badgeRepository.findAll());
+    }
+
+    public PaginatedResponse<BadgeResponse> getAllBadges(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
+        return PaginatedResponse.from(badgeRepository.findAll(pageable).map(BadgeResponse::from));
     }
 
     @Transactional
@@ -76,5 +85,14 @@ public class BadgeService {
             throw new ResourceNotFoundException("User not found with id: " + userId);
         }
         return UserBadgeResponse.fromList(userBadgeRepository.findByUserId(userId));
+    }
+
+    public PaginatedResponse<UserBadgeResponse> getBadgesForUser(UUID userId, int page, int size) {
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+        Pageable pageable = PageRequest.of(page, size, Sort.by("earnedAt").descending());
+        return PaginatedResponse.from(
+                userBadgeRepository.findByUserId(userId, pageable).map(UserBadgeResponse::from));
     }
 }

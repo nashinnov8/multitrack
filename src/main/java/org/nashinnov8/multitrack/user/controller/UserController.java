@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.nashinnov8.multitrack.common.dto.ApiResponse;
+import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.gamification.dto.response.UserBadgeResponse;
 import org.nashinnov8.multitrack.gamification.service.BadgeService;
 import org.nashinnov8.multitrack.user.dto.request.UpdateUserRequest;
@@ -41,6 +42,15 @@ public class UserController {
     @GetMapping("/{id}/badges")
     public ResponseEntity<ApiResponse<List<UserBadgeResponse>>> getUserBadges(@PathVariable UUID id) {
         List<UserBadgeResponse> badges = badgeService.getBadgesForUser(id);
+        return ResponseEntity.ok(new ApiResponse<>("User badges retrieved successfully", badges));
+    }
+
+    @GetMapping("/{id}/badges/paged")
+    public ResponseEntity<ApiResponse<PaginatedResponse<UserBadgeResponse>>> getUserBadgesPaged(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PaginatedResponse<UserBadgeResponse> badges = badgeService.getBadgesForUser(id, page, size);
         return ResponseEntity.ok(new ApiResponse<>("User badges retrieved successfully", badges));
     }
 }

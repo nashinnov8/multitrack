@@ -2,6 +2,7 @@ package org.nashinnov8.multitrack.tracking.service;
 
 import java.util.List;
 import java.util.UUID;
+import org.nashinnov8.multitrack.common.exception.ForbiddenException;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
 import org.nashinnov8.multitrack.tracking.domain.Concept;
 import org.nashinnov8.multitrack.tracking.domain.ConceptStatus;
@@ -25,10 +26,14 @@ public class ConceptService {
     }
 
     @Transactional
-    public ConceptResponse createConcept(UUID trackId, ConceptRequest request) {
+    public ConceptResponse createConcept(UUID trackId, ConceptRequest request, UUID currentUserId) {
         Track track = trackRepository
                 .findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to modify this track");
+        }
 
         ConceptStatus status = request.status() != null ? request.status() : ConceptStatus.NOT_UNDERSTOOD;
 
@@ -41,17 +46,25 @@ public class ConceptService {
         return ConceptResponse.from(conceptRepository.save(concept));
     }
 
-    public List<ConceptResponse> getConceptsByTrack(UUID trackId) {
-        if (!trackRepository.existsById(trackId)) {
-            throw new ResourceNotFoundException("Track not found with id: " + trackId);
+    public List<ConceptResponse> getConceptsByTrack(UUID trackId, UUID currentUserId) {
+        Track track = trackRepository
+                .findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to view these concepts");
         }
         return ConceptResponse.fromList(conceptRepository.findByTrackId(trackId));
     }
 
     @Transactional
-    public ConceptResponse updateConcept(UUID trackId, UUID conceptId, ConceptRequest request) {
-        if (!trackRepository.existsById(trackId)) {
-            throw new ResourceNotFoundException("Track not found with id: " + trackId);
+    public ConceptResponse updateConcept(UUID trackId, UUID conceptId, ConceptRequest request, UUID currentUserId) {
+        Track track = trackRepository
+                .findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to modify this track");
         }
 
         Concept concept = conceptRepository
@@ -67,9 +80,13 @@ public class ConceptService {
     }
 
     @Transactional
-    public void deleteConcept(UUID trackId, UUID conceptId) {
-        if (!trackRepository.existsById(trackId)) {
-            throw new ResourceNotFoundException("Track not found with id: " + trackId);
+    public void deleteConcept(UUID trackId, UUID conceptId, UUID currentUserId) {
+        Track track = trackRepository
+                .findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+        if (!track.getUser().getId().equals(currentUserId)) {
+            throw new ForbiddenException("You do not have permission to modify this track");
         }
 
         if (!conceptRepository.existsById(conceptId)) {

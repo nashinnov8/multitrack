@@ -10,7 +10,8 @@ public record UserResponse(
         String displayName,
         int totalExp,
         int level,
-        int globalStreak) {
+        int globalStreak,
+        String timezone) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -20,6 +21,7 @@ public record UserResponse(
                 user.getDisplayName(),
                 user.getTotalExp(),
                 user.getLevel(),
-                user.getGlobalStreak());
+                user.getGlobalStreak(),
+                user.getTimezone());
     }
 }

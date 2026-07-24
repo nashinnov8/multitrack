@@ -32,6 +32,9 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         user.setDisplayName(request.displayName());
+        if (request.timezone() != null && !request.timezone().isBlank()) {
+            user.setTimezone(request.timezone());
+        }
 
         return UserResponse.from(userRepository.save(user));
     }
