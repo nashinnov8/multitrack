@@ -1,0 +1,9 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+jwt:
+  private-key: classpath:keys/private.pem
+  public-key: classpath:keys/public.pem
+  access-token-expiration-seconds: 86400
