@@ -8,6 +8,7 @@ import org.nashinnov8.multitrack.tracking.domain.Track;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,6 +24,7 @@ public class EmailService {
   @Value("${app.frontend.url:http://localhost:3000}")
   private String frontendUrl;
 
+  @Async
   public void sendVerificationEmail(String toEmail, String token) {
     String verifyUrl = frontendUrl + "/verify-email?token=" + token;
     String subject = "Verify your Multitrack account";
@@ -60,6 +62,7 @@ public class EmailService {
     sendHtmlEmail(toEmail, subject, htmlContent);
   }
 
+  @Async
   public void sendStaleReminderEmail(String toEmail, String displayName, List<Track> staleTracks) {
     String subject = "⚠️ Reminder: Your learning tracks need attention!";
     
