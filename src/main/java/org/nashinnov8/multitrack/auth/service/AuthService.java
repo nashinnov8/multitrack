@@ -1,7 +1,9 @@
 package org.nashinnov8.multitrack.auth.service;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.nashinnov8.multitrack.auth.domain.RefreshToken;
 import org.nashinnov8.multitrack.auth.dto.AuthRequest;
@@ -12,6 +14,7 @@ import org.nashinnov8.multitrack.auth.repository.RefreshTokenRepository;
 import org.nashinnov8.multitrack.common.exception.InvalidRefreshTokenException;
 import org.nashinnov8.multitrack.common.exception.UserNotFoundException;
 import org.nashinnov8.multitrack.common.jwt.JwtProperties;
+import org.nashinnov8.multitrack.common.service.EmailService;
 import org.nashinnov8.multitrack.user.domain.User;
 import org.nashinnov8.multitrack.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,8 +31,8 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtEncoder jwtEncoder;
   private final RefreshTokenRepository refreshTokenRepository;
-
   private final JwtProperties jwtProperties;
+  private final EmailService emailService;
 
   public AuthResponse register(RegisterRequest request) {
     if (userRepository.findByEmail(request.email()).isPresent()) {
@@ -39,19 +42,46 @@ public class AuthService {
       throw new RuntimeException("Username already exists");
     }
 
+    String verificationToken = UUID.randomUUID().toString();
+    Instant verificationExpiry = Instant.now().plus(24, ChronoUnit.HOURS);
+
     User user =
         User.builder()
             .email(request.email())
             .password(passwordEncoder.encode(request.password()))
             .username(request.username())
             .displayName(request.displayName())
+            .enabled(false) // Must verify email first
+            .verificationToken(verificationToken)
+            .verificationTokenExpiry(verificationExpiry)
             .build();
 
     userRepository.save(user);
 
-    String token = generateToken(user);
-    String refreshToken = generateRefreshToken(user);
-    return new AuthResponse(token, refreshToken, user.getUsername());
+    // Send verification email
+    emailService.sendVerificationEmail(user.getEmail(), verificationToken);
+
+    // Return empty tokens indicating account requires verification
+    return new AuthResponse(null, null, user.getUsername());
+  }
+
+  public boolean verifyEmail(String token) {
+    Optional<User> userOpt = userRepository.findByVerificationToken(token);
+    if (userOpt.isEmpty()) {
+      throw new IllegalArgumentException("Invalid verification token");
+    }
+
+    User user = userOpt.get();
+    if (user.getVerificationTokenExpiry() != null && user.getVerificationTokenExpiry().isBefore(Instant.now())) {
+      throw new IllegalArgumentException("Verification token has expired");
+    }
+
+    user.setEnabled(true);
+    user.setVerificationToken(null);
+    user.setVerificationTokenExpiry(null);
+    userRepository.save(user);
+
+    return true;
   }
 
   public AuthResponse login(AuthRequest request) {
@@ -63,6 +93,11 @@ public class AuthService {
     }
 
     User user = userOptional.get();
+
+    if (!user.isEnabled()) {
+      throw new RuntimeException("Account is not activated. Please check your email to verify your account.");
+    }
+
     String token = generateToken(user);
     String refreshToken = generateRefreshToken(user);
 
@@ -124,7 +159,7 @@ public class AuthService {
     RefreshToken refreshToken =
         RefreshToken.builder()
             .user(user)
-            .token(java.util.UUID.randomUUID().toString())
+            .token(UUID.randomUUID().toString())
             .expiryDate(Instant.now().plusSeconds(expirationSeconds))
             .revoked(false)
             .build();
