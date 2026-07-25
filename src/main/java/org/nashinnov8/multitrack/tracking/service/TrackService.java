@@ -199,4 +199,31 @@ public class TrackService {
     List<Track> staleTracks = trackRepository.findOverdueTracks();
     return TrackResponse.fromList(staleTracks);
   }
+
+  public PaginatedResponse<ActivityLogResponse> getActivityLogs(UUID trackId, int page, int size, UUID currentUserId) {
+    Track track = trackRepository.findById(trackId)
+        .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+    if (!track.getUser().getId().equals(currentUserId)) {
+      throw new ForbiddenException("You do not have permission to access these activity logs");
+    }
+
+    Pageable pageable = PageRequest.of(page, size);
+    Page<ActivityLogResponse> pageResult = activityLogRepository
+        .findByTrackIdOrderByCreatedAtDesc(trackId, pageable)
+        .map(ActivityLogResponse::from);
+    return PaginatedResponse.from(pageResult);
+  }
+
+  @Transactional
+  public void deleteTrack(UUID trackId, UUID currentUserId) {
+    Track track = trackRepository.findById(trackId)
+        .orElseThrow(() -> new ResourceNotFoundException("Track not found with id: " + trackId));
+
+    if (!track.getUser().getId().equals(currentUserId)) {
+      throw new ForbiddenException("You do not have permission to delete this track");
+    }
+
+    trackRepository.delete(track);
+  }
 }

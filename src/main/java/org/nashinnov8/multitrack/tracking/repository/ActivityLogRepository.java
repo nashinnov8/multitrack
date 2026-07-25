@@ -17,4 +17,6 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> 
     @Query(
         "SELECT a FROM ActivityLog a WHERE a.track.id = :trackId AND a.gapsFound IS NOT NULL AND a.gapsFound <> ''")
     Page<ActivityLog> findGapsByTrackId(@Param("trackId") UUID trackId, Pageable pageable);
+
+    Page<ActivityLog> findByTrackIdOrderByCreatedAtDesc(UUID trackId, Pageable pageable);
 }
