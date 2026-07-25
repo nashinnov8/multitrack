@@ -5,11 +5,15 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.nashinnov8.multitrack.common.domain.BaseEntity;
 import org.nashinnov8.multitrack.user.domain.User;
 
 @Entity
 @Table(name = "tracks")
+@SQLDelete(sql = "UPDATE tracks SET is_deleted = true WHERE id = ?")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -51,6 +55,10 @@ public class Track extends BaseEntity {
   @Column(nullable = false)
   @Builder.Default
   private TrackStatus status = TrackStatus.ACTIVE;
+
+  @Builder.Default
+  @Column(name = "is_deleted", nullable = false, columnDefinition = "boolean default false")
+  private boolean isDeleted = false;
 
   @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
   @Builder.Default

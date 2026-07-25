@@ -100,4 +100,24 @@ public class TrackController {
     PaginatedResponse<ActivityLogResponse> gaps = trackService.getGaps(id, page, size, currentUserId);
     return ResponseEntity.ok(new ApiResponse<>("Gaps retrieved successfully", gaps));
   }
+
+  @GetMapping("/{id}/activity-logs")
+  public ResponseEntity<ApiResponse<PaginatedResponse<ActivityLogResponse>>> getActivityLogs(
+      @PathVariable UUID id,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    PaginatedResponse<ActivityLogResponse> logs = trackService.getActivityLogs(id, page, size, currentUserId);
+    return ResponseEntity.ok(new ApiResponse<>("Activity logs retrieved successfully", logs));
+  }
+
+  @DeleteMapping("/{id}")
+  public ResponseEntity<ApiResponse<Void>> deleteTrack(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID currentUserId = UUID.fromString(jwt.getClaimAsString("userId"));
+    trackService.deleteTrack(id, currentUserId);
+    return ResponseEntity.ok(new ApiResponse<>("Track deleted successfully", null));
+  }
 }

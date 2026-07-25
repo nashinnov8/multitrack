@@ -45,6 +45,16 @@ public class User extends BaseEntity {
   @Column(nullable = false)
   private String timezone = "Asia/Ho_Chi_Minh";
 
+  @Builder.Default
+  @Column(nullable = false, columnDefinition = "boolean default true")
+  private boolean enabled = true;
+
+  @Column(name = "verification_token")
+  private String verificationToken;
+
+  @Column(name = "verification_token_expiry")
+  private java.time.Instant verificationTokenExpiry;
+
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
   @Builder.Default
   private List<Track> tracks = new ArrayList<>();

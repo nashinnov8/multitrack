@@ -19,7 +19,7 @@ public interface TrackRepository extends JpaRepository<Track, UUID> {
     Optional<Track> findByIdWithUser(@Param("id") UUID id);
 
     @Query(value = "SELECT * FROM tracks " +
-                   "WHERE status = 'ACTIVE' " +
+                   "WHERE status = 'ACTIVE' AND is_deleted = false " +
                    "AND last_activity_at < (NOW() - (inactivity_threshold_days * INTERVAL '1 day'))",
            nativeQuery = true)
     List<Track> findOverdueTracks();
