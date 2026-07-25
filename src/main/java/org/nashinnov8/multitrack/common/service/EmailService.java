@@ -26,6 +26,10 @@ public class EmailService {
 
   @Async
   public void sendVerificationEmail(String toEmail, String token) {
+    log.info("[EMAIL-DEBUG] Starting sendVerificationEmail asynchronously to recipient: {}", toEmail);
+    log.info("[EMAIL-DEBUG] Using sender fromEmail: {}", fromEmail);
+    log.info("[EMAIL-DEBUG] Using frontendUrl: {}", frontendUrl);
+
     String verifyUrl = frontendUrl + "/verify-email?token=" + token;
     String subject = "Verify your Multitrack account";
     
@@ -64,6 +68,8 @@ public class EmailService {
 
   @Async
   public void sendStaleReminderEmail(String toEmail, String displayName, List<Track> staleTracks) {
+    log.info("[EMAIL-DEBUG] Starting sendStaleReminderEmail to: {}", toEmail);
+
     String subject = "⚠️ Reminder: Your learning tracks need attention!";
     
     StringBuilder tracksListHtml = new StringBuilder();
@@ -103,16 +109,18 @@ public class EmailService {
 
   private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
     try {
+      log.info("[EMAIL-DEBUG] Attempting to send MimeMessage via JavaMailSender...");
       MimeMessage mimeMessage = mailSender.createMimeMessage();
       MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
       helper.setFrom(fromEmail);
       helper.setTo(toEmail);
       helper.setSubject(subject);
       helper.setText(htmlContent, true);
+      
       mailSender.send(mimeMessage);
-      log.info("Email sent successfully to {}", toEmail);
+      log.info("[EMAIL-DEBUG] SUCCESS! Email sent successfully to {}", toEmail);
     } catch (Exception e) {
-      log.error("Failed to send email to {}: {}", toEmail, e.getMessage());
+      log.error("[EMAIL-DEBUG] ERROR! Exception occurred while sending email to {}: {}", toEmail, e.getMessage(), e);
     }
   }
 }
