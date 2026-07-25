@@ -16,6 +16,9 @@ import org.springframework.web.client.RestClient;
 @Slf4j
 public class EmailService {
 
+  @Value("${BREVO_API_KEY:}")
+  private String brevoApiKey;
+
   @Value("${RESEND_API_KEY:${MAIL_PASSWORD:}}")
   private String resendApiKey;
 
@@ -25,15 +28,17 @@ public class EmailService {
   @Value("${app.frontend.url:http://localhost:3000}")
   private String frontendUrl;
 
-  private final RestClient restClient = RestClient.builder()
+  private final RestClient resendClient = RestClient.builder()
       .baseUrl("https://api.resend.com")
+      .build();
+
+  private final RestClient brevoClient = RestClient.builder()
+      .baseUrl("https://api.brevo.com/v3")
       .build();
 
   @Async
   public void sendVerificationEmail(String toEmail, String token) {
     log.info("[EMAIL-DEBUG] Starting sendVerificationEmail to recipient: {}", toEmail);
-    log.info("[EMAIL-DEBUG] Using sender fromEmail: {}", fromEmail);
-    log.info("[EMAIL-DEBUG] Using frontendUrl: {}", frontendUrl);
 
     String verifyUrl = frontendUrl + "/verify-email?token=" + token;
     String subject = "Verify your Multitrack account";
@@ -68,7 +73,7 @@ public class EmailService {
         </div>
         """.formatted(verifyUrl, verifyUrl, verifyUrl);
 
-    sendViaResendHttpApi(toEmail, subject, htmlContent);
+    dispatchEmail(toEmail, subject, htmlContent);
   }
 
   @Async
@@ -109,7 +114,48 @@ public class EmailService {
         </div>
         """.formatted(displayName, tracksListHtml.toString(), frontendUrl);
 
-    sendViaResendHttpApi(toEmail, subject, htmlContent);
+    dispatchEmail(toEmail, subject, htmlContent);
+  }
+
+  private void dispatchEmail(String toEmail, String subject, String htmlContent) {
+    // If BREVO_API_KEY is present or key starts with xkeysib-
+    String activeBrevoKey = (brevoApiKey != null && !brevoApiKey.isBlank()) ? brevoApiKey :
+        (resendApiKey != null && resendApiKey.startsWith("xkeysib-")) ? resendApiKey : null;
+
+    if (activeBrevoKey != null) {
+      sendViaBrevoApi(activeBrevoKey, toEmail, subject, htmlContent);
+    } else {
+      sendViaResendHttpApi(toEmail, subject, htmlContent);
+    }
+  }
+
+  private void sendViaBrevoApi(String apiKey, String toEmail, String subject, String htmlContent) {
+    try {
+      log.info("[EMAIL-DEBUG] Sending email via Brevo HTTPS REST API to: {}", toEmail);
+
+      String senderAddress = (fromEmail != null && fromEmail.contains("@") && !fromEmail.contains("resend.dev")) 
+          ? fromEmail 
+          : "noreply@multitrack.app";
+
+      Map<String, Object> body = Map.of(
+          "sender", Map.of("name", "Multitrack", "email", senderAddress),
+          "to", List.of(Map.of("email", toEmail)),
+          "subject", subject,
+          "htmlContent", htmlContent
+      );
+
+      String response = brevoClient.post()
+          .uri("/smtp/email")
+          .header("api-key", apiKey)
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(body)
+          .retrieve()
+          .body(String.class);
+
+      log.info("[EMAIL-DEBUG] SUCCESS! Brevo API Response: {}", response);
+    } catch (Exception e) {
+      log.error("[EMAIL-DEBUG] ERROR! Exception sending email via Brevo API to {}: {}", toEmail, e.getMessage(), e);
+    }
   }
 
   private void sendViaResendHttpApi(String toEmail, String subject, String htmlContent) {
@@ -128,7 +174,7 @@ public class EmailService {
           "html", htmlContent
       );
 
-      String response = restClient.post()
+      String response = resendClient.post()
           .uri("/emails")
           .header("Authorization", "Bearer " + resendApiKey)
           .contentType(MediaType.APPLICATION_JSON)
