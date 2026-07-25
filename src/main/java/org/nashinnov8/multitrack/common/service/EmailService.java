@@ -22,7 +22,7 @@ public class EmailService {
   @Value("${RESEND_API_KEY:${MAIL_PASSWORD:}}")
   private String resendApiKey;
 
-  @Value("${MAIL_FROM:onboarding@resend.dev}")
+  @Value("${BREVO_SENDER_EMAIL:${MAIL_FROM:onboarding@resend.dev}}")
   private String fromEmail;
 
   @Value("${app.frontend.url:http://localhost:3000}")
@@ -131,11 +131,11 @@ public class EmailService {
 
   private void sendViaBrevoApi(String apiKey, String toEmail, String subject, String htmlContent) {
     try {
-      log.info("[EMAIL-DEBUG] Sending email via Brevo HTTPS REST API to: {}", toEmail);
-
-      String senderAddress = (fromEmail != null && fromEmail.contains("@") && !fromEmail.contains("resend.dev")) 
+      String senderAddress = (fromEmail != null && fromEmail.contains("@")) 
           ? fromEmail 
           : "noreply@multitrack.app";
+
+      log.info("[EMAIL-DEBUG] Sending email via Brevo HTTPS REST API to: {} using sender: {}", toEmail, senderAddress);
 
       Map<String, Object> body = Map.of(
           "sender", Map.of("name", "Multitrack", "email", senderAddress),
