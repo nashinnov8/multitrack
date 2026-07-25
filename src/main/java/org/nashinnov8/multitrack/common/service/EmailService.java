@@ -1,22 +1,23 @@
 package org.nashinnov8.multitrack.common.service;
 
-import jakarta.mail.internet.MimeMessage;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.nashinnov8.multitrack.tracking.domain.Track;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
-  private final JavaMailSender mailSender;
+  @Value("${RESEND_API_KEY:${MAIL_PASSWORD:}}")
+  private String resendApiKey;
 
   @Value("${MAIL_FROM:onboarding@resend.dev}")
   private String fromEmail;
@@ -24,9 +25,13 @@ public class EmailService {
   @Value("${app.frontend.url:http://localhost:3000}")
   private String frontendUrl;
 
+  private final RestClient restClient = RestClient.builder()
+      .baseUrl("https://api.resend.com")
+      .build();
+
   @Async
   public void sendVerificationEmail(String toEmail, String token) {
-    log.info("[EMAIL-DEBUG] Starting sendVerificationEmail asynchronously to recipient: {}", toEmail);
+    log.info("[EMAIL-DEBUG] Starting sendVerificationEmail to recipient: {}", toEmail);
     log.info("[EMAIL-DEBUG] Using sender fromEmail: {}", fromEmail);
     log.info("[EMAIL-DEBUG] Using frontendUrl: {}", frontendUrl);
 
@@ -34,7 +39,7 @@ public class EmailService {
     String subject = "Verify your Multitrack account";
     
     String htmlContent = """
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded-radius: 12px; background-color: #ffffff;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 20px;">
             <h2 style="color: #4f46e5; margin: 0;">Multitrack</h2>
             <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Goal & Skill Habit Tracker</p>
@@ -63,7 +68,7 @@ public class EmailService {
         </div>
         """.formatted(verifyUrl, verifyUrl, verifyUrl);
 
-    sendHtmlEmail(toEmail, subject, htmlContent);
+    sendViaResendHttpApi(toEmail, subject, htmlContent);
   }
 
   @Async
@@ -104,23 +109,36 @@ public class EmailService {
         </div>
         """.formatted(displayName, tracksListHtml.toString(), frontendUrl);
 
-    sendHtmlEmail(toEmail, subject, htmlContent);
+    sendViaResendHttpApi(toEmail, subject, htmlContent);
   }
 
-  private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
+  private void sendViaResendHttpApi(String toEmail, String subject, String htmlContent) {
+    if (resendApiKey == null || resendApiKey.isBlank()) {
+      log.warn("[EMAIL-DEBUG] Resend API Key is missing. Skipping email sending.");
+      return;
+    }
+
     try {
-      log.info("[EMAIL-DEBUG] Attempting to send MimeMessage via JavaMailSender...");
-      MimeMessage mimeMessage = mailSender.createMimeMessage();
-      MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-      helper.setFrom(fromEmail);
-      helper.setTo(toEmail);
-      helper.setSubject(subject);
-      helper.setText(htmlContent, true);
+      log.info("[EMAIL-DEBUG] Sending email via Resend HTTPS API (Port 443) to: {}", toEmail);
       
-      mailSender.send(mimeMessage);
-      log.info("[EMAIL-DEBUG] SUCCESS! Email sent successfully to {}", toEmail);
+      Map<String, Object> body = Map.of(
+          "from", fromEmail,
+          "to", List.of(toEmail),
+          "subject", subject,
+          "html", htmlContent
+      );
+
+      String response = restClient.post()
+          .uri("/emails")
+          .header("Authorization", "Bearer " + resendApiKey)
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(body)
+          .retrieve()
+          .body(String.class);
+
+      log.info("[EMAIL-DEBUG] SUCCESS! Resend API Response: {}", response);
     } catch (Exception e) {
-      log.error("[EMAIL-DEBUG] ERROR! Exception occurred while sending email to {}: {}", toEmail, e.getMessage(), e);
+      log.error("[EMAIL-DEBUG] ERROR! Exception sending email via Resend HTTPS API to {}: {}", toEmail, e.getMessage(), e);
     }
   }
 }
