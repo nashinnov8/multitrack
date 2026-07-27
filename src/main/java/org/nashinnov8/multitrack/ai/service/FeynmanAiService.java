@@ -23,10 +23,16 @@ public class FeynmanAiService {
 
     private static final Logger log = LoggerFactory.getLogger(FeynmanAiService.class);
 
+    @Value("${deepseek.api-key:${DEEPSEEK_API_KEY:}}")
+    private String deepseekApiKey;
+
+    @Value("${deepseek.model:${DEEPSEEK_MODEL:deepseek-chat}}")
+    private String deepseekModel;
+
     @Value("${gemini.api-key:${GEMINI_API_KEY:}}")
     private String apiKey;
 
-    @Value("${gemini.model:gemini-1.5-flash-latest}")
+    @Value("${gemini.model:${GEMINI_MODEL:gemini-1.5-flash-latest}}")
     private String model;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -47,12 +53,26 @@ public class FeynmanAiService {
             );
         }
 
-        boolean isKeyPresent = apiKey != null && !apiKey.isBlank();
-        String maskedKey = isKeyPresent ? (apiKey.length() > 6 ? apiKey.substring(0, 6) + "..." : "SET") : "NONE";
-        log.info("[FeynmanAiService] Evaluating explanation. Key loaded: {}, Preferred Model: {}", maskedKey, model);
+        boolean isDeepseekPresent = deepseekApiKey != null && !deepseekApiKey.isBlank();
+        boolean isGeminiPresent = apiKey != null && !apiKey.isBlank();
 
-        // If Gemini API key is provided, call Google Gemini AI API
-        if (isKeyPresent) {
+        // 1. Try DeepSeek API first if DEEPSEEK_API_KEY is provided
+        if (isDeepseekPresent) {
+            String maskedDsKey = deepseekApiKey.length() > 6 ? deepseekApiKey.substring(0, 6) + "..." : "SET";
+            log.info("[FeynmanAiService] Calling DeepSeek API. Key: {}, Model: {}", maskedDsKey, deepseekModel);
+            try {
+                return callDeepSeekApi(request.conceptName(), feynmanText);
+            } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+                log.error("[FeynmanAiService] DeepSeek API HTTP error status: {}, body: {}", httpEx.getStatusCode(), httpEx.getResponseBodyAsString());
+            } catch (Exception e) {
+                log.error("[FeynmanAiService] DeepSeek API call failed with error: {}", e.getMessage(), e);
+            }
+        }
+
+        // 2. Try Gemini API if GEMINI_API_KEY is provided
+        if (isGeminiPresent) {
+            String maskedKey = apiKey.length() > 6 ? apiKey.substring(0, 6) + "..." : "SET";
+            log.info("[FeynmanAiService] Calling Gemini API. Key: {}, Preferred Model: {}", maskedKey, model);
             try {
                 FeynmanEvaluationResponse aiResponse = callGeminiApi(request.conceptName(), feynmanText);
                 log.info("[FeynmanAiService] Gemini API call succeeded. Score: {}", aiResponse.score());
@@ -62,12 +82,63 @@ public class FeynmanAiService {
             } catch (Exception e) {
                 log.error("[FeynmanAiService] Gemini API call failed with error: {}", e.getMessage(), e);
             }
-        } else {
-            log.warn("[FeynmanAiService] GEMINI_API_KEY environment variable is missing or empty. Using heuristic evaluation fallback.");
+        } else if (!isDeepseekPresent) {
+            log.warn("[FeynmanAiService] Neither DEEPSEEK_API_KEY nor GEMINI_API_KEY configured. Using heuristic evaluation fallback.");
         }
 
-        // Smart Heuristic Evaluation Fallback
+        // 3. Smart Heuristic Evaluation Fallback
         return evaluateHeuristically(request.conceptName(), feynmanText);
+    }
+
+    private FeynmanEvaluationResponse callDeepSeekApi(String conceptName, String feynmanText) throws Exception {
+        String url = "https://api.deepseek.com/chat/completions";
+
+        String prompt = """
+            You are an expert Feynman Technique tutor. Evaluate this student's explanation for topic: "%s".
+            Student Explanation: "%s"
+
+            Critically analyze the explanation:
+            1. If the student uses overly complex jargon (e.g., "asynchronous KMS envelope encryption", "TLS mutual handshake", "OAuth2 grant type"), warn them in 'jargonWarning' in Vietnamese and penalize the 'score' (give 5 or 6 out of 10).
+            2. If the explanation is simple, clear, and uses real-world analogies, give a high score (8-10).
+            3. If the explanation is incorrect or vague, suggest a specific knowledge gap topic in 'suggestedGap' in Vietnamese.
+
+            Return ONLY a valid JSON object with these exact keys:
+            {
+              "score": <integer 1-10 rating simplicity and clarity>,
+              "feedback": "<1-2 sentence constructive feedback in Vietnamese>",
+              "jargonWarning": "<warning in Vietnamese if they used overly complex jargon, or empty string if clear>",
+              "suggestedGap": "<1 potential knowledge gap topic in Vietnamese they should review, or empty string if clear>"
+            }
+            """.formatted(conceptName != null ? conceptName : "General Topic", feynmanText);
+
+        Map<String, Object> requestBody = Map.of(
+            "model", deepseekModel,
+            "messages", List.of(
+                Map.of("role", "system", "content", "You are an AI assistant that outputs JSON."),
+                Map.of("role", "user", "content", prompt)
+            ),
+            "response_format", Map.of("type", "json_object")
+        );
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(deepseekApiKey);
+
+        HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
+        String responseStr = restTemplate.postForObject(url, entity, String.class);
+
+        JsonNode root = objectMapper.readTree(responseStr);
+        String jsonText = root.path("choices").get(0).path("message").path("content").asText();
+
+        JsonNode evalJson = objectMapper.readTree(jsonText);
+
+        int score = evalJson.path("score").asInt(8);
+        String feedback = evalJson.path("feedback").asText("Lời giải thích khá tốt, hãy tiếp tục duy trì!");
+        String jargonWarning = evalJson.path("jargonWarning").asText("");
+        String suggestedGap = evalJson.path("suggestedGap").asText("");
+
+        log.info("[FeynmanAiService] DeepSeek API call succeeded with model '{}'. Score: {}", deepseekModel, score);
+        return new FeynmanEvaluationResponse(score, feedback, jargonWarning, suggestedGap);
     }
 
     private FeynmanEvaluationResponse callGeminiApi(String conceptName, String feynmanText) throws Exception {
