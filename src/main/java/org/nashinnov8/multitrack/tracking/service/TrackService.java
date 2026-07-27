@@ -34,17 +34,19 @@ public class TrackService {
   private final ActivityLogRepository activityLogRepository;
   private final UserRepository userRepository;
   private final ConceptRepository conceptRepository;
+  private final org.nashinnov8.multitrack.gamification.service.BadgeEvaluatorService badgeEvaluatorService;
 
-  // Dependency Injection thông qua Constructor
   public TrackService(
       TrackRepository trackRepository,
       ActivityLogRepository activityLogRepository,
       UserRepository userRepository,
-      ConceptRepository conceptRepository) {
+      ConceptRepository conceptRepository,
+      org.nashinnov8.multitrack.gamification.service.BadgeEvaluatorService badgeEvaluatorService) {
     this.trackRepository = trackRepository;
     this.activityLogRepository = activityLogRepository;
     this.userRepository = userRepository;
     this.conceptRepository = conceptRepository;
+    this.badgeEvaluatorService = badgeEvaluatorService;
   }
 
   @Transactional
@@ -62,6 +64,9 @@ public class TrackService {
         .build();
 
     Track savedTrack = trackRepository.save(newTrack);
+
+    // Auto-award badge for creating first track
+    badgeEvaluatorService.evaluateAndAward(existingUser.getId(), "🎯 Khởi đầu Mục tiêu");
 
     return TrackResponse.from(savedTrack);
   }
@@ -136,8 +141,8 @@ public class TrackService {
     // Cập nhật kỷ lục streak dài nhất
     track.setLongestStreak(Math.max(track.getLongestStreak(), track.getCurrentStreak()));
 
-    // 2. TẠO LOG MỚI
-    int expEarned = 10;
+    // 2. TẠO LOG MỚI (+150 EXP per Feynman Check-in)
+    int expEarned = 150;
     ActivityLog newLog = ActivityLog.builder()
             .track(track)
             .concept(concept)
@@ -158,6 +163,10 @@ public class TrackService {
     user.setTotalExp(user.getTotalExp() + expEarned);
     user.setLevel(LevelCalculator.calculateLevel(user.getTotalExp()));
     userRepository.save(user);
+
+    // Auto-eval badges (Check-in 1st, Streaks, Level, etc.)
+    int totalLogsCount = (int) activityLogRepository.countByTrackUserId(user.getId());
+    badgeEvaluatorService.evaluateUserProgress(user, 1, totalLogsCount, 0, 0, 0);
 
     return ActivityLogResponse.from(savedLog);
   }

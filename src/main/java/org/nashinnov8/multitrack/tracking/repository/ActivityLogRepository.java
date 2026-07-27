@@ -19,4 +19,6 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> 
     Page<ActivityLog> findGapsByTrackId(@Param("trackId") UUID trackId, Pageable pageable);
 
     Page<ActivityLog> findByTrackIdOrderByCreatedAtDesc(UUID trackId, Pageable pageable);
+
+    long countByTrackUserId(UUID userId);
 }
