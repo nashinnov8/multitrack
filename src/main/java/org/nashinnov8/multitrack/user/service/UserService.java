@@ -3,10 +3,12 @@ package org.nashinnov8.multitrack.user.service;
 import java.util.UUID;
 import org.nashinnov8.multitrack.common.exception.BusinessException;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
+import org.nashinnov8.multitrack.tracking.domain.Track;
 import org.nashinnov8.multitrack.user.domain.User;
 import org.nashinnov8.multitrack.user.dto.request.UpdateUserRequest;
 import org.nashinnov8.multitrack.user.dto.response.UserResponse;
 import org.nashinnov8.multitrack.user.repository.UserRepository;
+import org.nashinnov8.multitrack.user.util.LevelCalculator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,8 +26,8 @@ public class UserService {
                 .findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
-        int calculatedLevel = org.nashinnov8.multitrack.user.util.LevelCalculator.calculateLevel(user.getTotalExp());
-        int maxTrackStreak = user.getTracks().stream().mapToInt(org.nashinnov8.multitrack.tracking.domain.Track::getCurrentStreak).max().orElse(0);
+        int calculatedLevel = LevelCalculator.calculateLevel(user.getTotalExp());
+        int maxTrackStreak = user.getTracks().stream().mapToInt(Track::getCurrentStreak).max().orElse(0);
         int effectiveStreak = Math.max(user.getGlobalStreak(), maxTrackStreak);
 
         if (user.getLevel() != calculatedLevel || user.getGlobalStreak() != effectiveStreak) {

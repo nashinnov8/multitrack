@@ -14,6 +14,7 @@ import org.nashinnov8.multitrack.gamification.repository.BadgeRepository;
 import org.nashinnov8.multitrack.gamification.repository.UserBadgeRepository;
 import org.nashinnov8.multitrack.user.domain.User;
 import org.nashinnov8.multitrack.user.repository.UserRepository;
+import org.nashinnov8.multitrack.user.util.LevelCalculator;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -75,7 +76,7 @@ public class BadgeService {
 
         // Add badge EXP reward to user total and recalculate level
         user.setTotalExp(user.getTotalExp() + badge.getExpReward());
-        user.setLevel(org.nashinnov8.multitrack.user.util.LevelCalculator.calculateLevel(user.getTotalExp()));
+        user.setLevel(LevelCalculator.calculateLevel(user.getTotalExp()));
         userRepository.save(user);
 
         return UserBadgeResponse.from(userBadgeRepository.save(userBadge));

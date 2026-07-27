@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.common.exception.ForbiddenException;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
+import org.nashinnov8.multitrack.gamification.service.BadgeEvaluatorService;
 import org.nashinnov8.multitrack.tracking.domain.ActivityLog;
 import org.nashinnov8.multitrack.tracking.domain.Concept;
 import org.nashinnov8.multitrack.tracking.domain.Track;
@@ -34,14 +35,14 @@ public class TrackService {
   private final ActivityLogRepository activityLogRepository;
   private final UserRepository userRepository;
   private final ConceptRepository conceptRepository;
-  private final org.nashinnov8.multitrack.gamification.service.BadgeEvaluatorService badgeEvaluatorService;
+  private final BadgeEvaluatorService badgeEvaluatorService;
 
   public TrackService(
       TrackRepository trackRepository,
       ActivityLogRepository activityLogRepository,
       UserRepository userRepository,
       ConceptRepository conceptRepository,
-      org.nashinnov8.multitrack.gamification.service.BadgeEvaluatorService badgeEvaluatorService) {
+      BadgeEvaluatorService badgeEvaluatorService) {
     this.trackRepository = trackRepository;
     this.activityLogRepository = activityLogRepository;
     this.userRepository = userRepository;
