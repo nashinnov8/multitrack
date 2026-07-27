@@ -42,7 +42,7 @@ public class User extends BaseEntity {
   private int globalStreak = 0;
 
   @Builder.Default
-  @Column(nullable = false)
+  @Column(name = "streak_freeze_count", nullable = false, columnDefinition = "integer default 0")
   private int streakFreezeCount = 0;
 
   @Builder.Default

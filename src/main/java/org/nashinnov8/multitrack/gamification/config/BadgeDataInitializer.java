@@ -3,6 +3,7 @@ package org.nashinnov8.multitrack.gamification.config;
 import org.nashinnov8.multitrack.gamification.domain.Badge;
 import org.nashinnov8.multitrack.gamification.repository.BadgeRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -11,13 +12,22 @@ import java.util.List;
 public class BadgeDataInitializer implements CommandLineRunner {
 
     private final BadgeRepository badgeRepository;
+    private final JdbcTemplate jdbcTemplate;
 
-    public BadgeDataInitializer(BadgeRepository badgeRepository) {
+    public BadgeDataInitializer(BadgeRepository badgeRepository, JdbcTemplate jdbcTemplate) {
         this.badgeRepository = badgeRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     public void run(String... args) {
+        // Ensure database schema has streak_freeze_count column
+        try {
+            jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_freeze_count INT NOT NULL DEFAULT 0;");
+        } catch (Exception e) {
+            // Ignore if column already exists or DB dialect differs
+        }
+
         List<Badge> defaultBadges = List.of(
             Badge.builder()
                 .name("🎯 Khởi đầu Mục tiêu")
