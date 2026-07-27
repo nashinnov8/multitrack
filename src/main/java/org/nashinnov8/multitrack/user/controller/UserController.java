@@ -8,6 +8,7 @@ import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.gamification.dto.response.UserBadgeResponse;
 import org.nashinnov8.multitrack.gamification.service.BadgeService;
 import org.nashinnov8.multitrack.user.dto.request.UpdateUserRequest;
+import org.nashinnov8.multitrack.user.dto.response.ActivityHeatmapDayResponse;
 import org.nashinnov8.multitrack.user.dto.response.UserResponse;
 import org.nashinnov8.multitrack.user.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,12 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResponse>> getUserProfile(@PathVariable UUID id) {
         UserResponse user = userService.getUserById(id);
         return ResponseEntity.ok(new ApiResponse<>("User profile retrieved successfully", user));
+    }
+
+    @GetMapping("/{id}/activity-heatmap")
+    public ResponseEntity<ApiResponse<List<ActivityHeatmapDayResponse>>> getActivityHeatmap(@PathVariable UUID id) {
+        List<ActivityHeatmapDayResponse> heatmap = userService.getActivityHeatmap(id);
+        return ResponseEntity.ok(new ApiResponse<>("Activity heatmap retrieved successfully", heatmap));
     }
 
     @PatchMapping("/{id}")
