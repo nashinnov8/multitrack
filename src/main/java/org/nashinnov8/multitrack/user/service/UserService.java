@@ -23,6 +23,17 @@ public class UserService {
         User user = userRepository
                 .findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        int calculatedLevel = org.nashinnov8.multitrack.user.util.LevelCalculator.calculateLevel(user.getTotalExp());
+        int maxTrackStreak = user.getTracks().stream().mapToInt(org.nashinnov8.multitrack.tracking.domain.Track::getCurrentStreak).max().orElse(0);
+        int effectiveStreak = Math.max(user.getGlobalStreak(), maxTrackStreak);
+
+        if (user.getLevel() != calculatedLevel || user.getGlobalStreak() != effectiveStreak) {
+            user.setLevel(calculatedLevel);
+            user.setGlobalStreak(effectiveStreak);
+            user = userRepository.save(user);
+        }
+
         return UserResponse.from(user);
     }
 

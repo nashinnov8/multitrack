@@ -73,8 +73,9 @@ public class BadgeService {
                 .earnedAt(Instant.now())
                 .build();
 
-        // Add badge EXP reward to user total
+        // Add badge EXP reward to user total and recalculate level
         user.setTotalExp(user.getTotalExp() + badge.getExpReward());
+        user.setLevel(org.nashinnov8.multitrack.user.util.LevelCalculator.calculateLevel(user.getTotalExp()));
         userRepository.save(user);
 
         return UserBadgeResponse.from(userBadgeRepository.save(userBadge));
