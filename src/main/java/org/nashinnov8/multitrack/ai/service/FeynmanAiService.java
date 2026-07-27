@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.nashinnov8.multitrack.ai.dto.request.FeynmanEvaluationRequest;
 import org.nashinnov8.multitrack.ai.dto.response.FeynmanEvaluationResponse;
+import org.nashinnov8.multitrack.common.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,18 +49,20 @@ public class FeynmanAiService {
 
         feynmanText = feynmanText.trim();
         if (feynmanText.isEmpty()) {
-            return new FeynmanEvaluationResponse(
-                3,
-                isEn
-                    ? "Explanation is empty. Try using your own simple words to explain the topic!"
-                    : "Bài giải thích còn trống. Hãy thử dùng ngôn ngữ đơn giản của riêng bạn để diễn đạt bài học!",
-                "",
-                ""
-            );
+            throw new BusinessException(isEn
+                ? "Explanation is empty. Please enter your explanation before requesting AI evaluation!"
+                : "Bài giải thích còn trống. Vui lòng nhập nội dung giải thích trước khi yêu cầu AI chấm điểm!");
         }
 
         boolean isDeepseekPresent = deepseekApiKey != null && !deepseekApiKey.isBlank();
         boolean isGeminiPresent = apiKey != null && !apiKey.isBlank();
+
+        if (!isDeepseekPresent && !isGeminiPresent) {
+            log.warn("[FeynmanAiService] Neither DEEPSEEK_API_KEY nor GEMINI_API_KEY configured.");
+            throw new BusinessException(isEn
+                ? "AI Evaluation Service is currently unavailable. Please configure DEEPSEEK_API_KEY or GEMINI_API_KEY."
+                : "Dịch vụ Trợ lý AI hiện chưa khả dụng. Vui lòng cấu hình DEEPSEEK_API_KEY hoặc GEMINI_API_KEY!");
+        }
 
         log.info("[FeynmanAiService] Evaluating explanation. Lang: {}, Length: {}", langName, feynmanText.length());
 
@@ -89,12 +92,12 @@ public class FeynmanAiService {
             } catch (Exception e) {
                 log.error("[FeynmanAiService] Gemini API call failed with error: {}", e.getMessage(), e);
             }
-        } else if (!isDeepseekPresent) {
-            log.warn("[FeynmanAiService] Neither DEEPSEEK_API_KEY nor GEMINI_API_KEY configured. Using heuristic evaluation fallback.");
         }
 
-        // 3. Smart Heuristic Evaluation Fallback
-        return evaluateHeuristically(request.conceptName(), feynmanText, isEn);
+        // If AI calls fail, throw explicit BusinessException
+        throw new BusinessException(isEn
+            ? "AI Evaluation Service is temporarily unavailable. Please check your API Key or rate limits."
+            : "Dịch vụ Trợ lý AI tạm thời không khả dụng. Vui lòng kiểm tra lại API Key hoặc hạn mức sử dụng!");
     }
 
     private FeynmanEvaluationResponse callDeepSeekApi(String conceptName, String feynmanText, String langName) throws Exception {
@@ -226,43 +229,6 @@ public class FeynmanAiService {
         String suggestedGap = evalJson.path("suggestedGap").asText("");
 
         log.info("[FeynmanAiService] Successfully called model '{}'", targetModel);
-        return new FeynmanEvaluationResponse(score, feedback, jargonWarning, suggestedGap);
-    }
-
-    private FeynmanEvaluationResponse evaluateHeuristically(String conceptName, String text, boolean isEn) {
-        int length = text.length();
-        int wordCount = text.trim().split("\\s+").length;
-
-        int score;
-        String feedback;
-        String jargonWarning = "";
-        String suggestedGap = "";
-
-        if (length < 15) {
-            score = 4;
-            feedback = isEn
-                ? "The explanation is too short! Write 15+ characters for optimal learning retention."
-                : "Lời giải thích hơi ngắn! Hãy thử diễn đạt từ 15 ký tự trở lên để đạt hiệu quả ghi nhớ tốt nhất.";
-            suggestedGap = isEn
-                ? "How to add real-world analogies for " + (conceptName != null && !conceptName.isBlank() ? conceptName : "this topic")
-                : "Cách bổ sung ví dụ minh họa cho " + (conceptName != null && !conceptName.isBlank() ? conceptName : "bài học");
-        } else if (wordCount < 8) {
-            score = 6;
-            feedback = isEn
-                ? "The explanation is fairly concise. Consider adding a real-world example to make it even clearer."
-                : "Lời giải thích tương đối ngắn gọn. Bạn có thể bổ sung 1 ví dụ đời thường để dễ hiểu hơn.";
-        } else if (length > 300) {
-            score = 7;
-            feedback = isEn
-                ? "Very detailed explanation! Remember to summarize the core key takeaways concisely."
-                : "Bài giải thích rất chi tiết! Hãy chú ý đúc kết lại các ý cốt lõi sao cho thật đọng lại.";
-        } else {
-            score = 8;
-            feedback = isEn
-                ? "Clear and concise explanation. You are applying the Feynman Technique very effectively!"
-                : "Lời giải thích mạch lạc và vừa đủ. Bạn đang áp dụng phương pháp Feynman rất hiệu quả!";
-        }
-
         return new FeynmanEvaluationResponse(score, feedback, jargonWarning, suggestedGap);
     }
 }
