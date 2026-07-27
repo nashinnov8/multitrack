@@ -98,7 +98,7 @@ public class FeynmanAiService {
             Student Explanation: "%s"
 
             Critically analyze the explanation:
-            1. If the student uses overly complex jargon (e.g., "asynchronous KMS envelope encryption", "TLS mutual handshake", "OAuth2 grant type"), warn them in 'jargonWarning' in Vietnamese and penalize the 'score' (give 5 or 6 out of 10).
+            1. If the student uses overly complex jargon (hard-to-understand technical buzzwords or acronyms), warn them in 'jargonWarning' in Vietnamese and penalize the 'score' (give 5 or 6 out of 10).
             2. If the explanation is simple, clear, and uses real-world analogies, give a high score (8-10).
             3. If the explanation is incorrect or vague, suggest a specific knowledge gap topic in 'suggestedGap' in Vietnamese.
 
@@ -182,7 +182,7 @@ public class FeynmanAiService {
             Student Explanation: "%s"
 
             Critically analyze the explanation:
-            1. If the student uses overly complex jargon (e.g., "asynchronous KMS envelope encryption", "TLS mutual handshake", "OAuth2 grant type"), warn them in 'jargonWarning' in Vietnamese and penalize the 'score' (give 5 or 6 out of 10).
+            1. If the student uses overly complex jargon (hard-to-understand technical buzzwords or acronyms), warn them in 'jargonWarning' in Vietnamese and penalize the 'score' (give 5 or 6 out of 10).
             2. If the explanation is simple, clear, and uses real-world analogies, give a high score (8-10).
             3. If the explanation is incorrect or vague, suggest a specific knowledge gap topic in 'suggestedGap' in Vietnamese.
 
@@ -224,26 +224,26 @@ public class FeynmanAiService {
 
     private FeynmanEvaluationResponse evaluateHeuristically(String conceptName, String text) {
         int length = text.length();
+        int wordCount = text.trim().split("\\s+").length;
+
         int score;
         String feedback;
         String jargonWarning = "";
         String suggestedGap = "";
 
-        if (text.toLowerCase().contains("asynchronous") || text.toLowerCase().contains("kms") || text.toLowerCase().contains("tls") || text.toLowerCase().contains("oauth")) {
-            score = 5;
-            feedback = "Lời giải thích chứa khá nhiều thuật ngữ chuyên ngành phức tạp.";
-            jargonWarning = "Từ ngữ như KMS, TLS handshake, OAuth2 quá hàn lâm. Hãy thử giải thích đơn giản bằng ví dụ chiếc két sắt!";
-            suggestedGap = "Cách đơn giản hóa các thuật ngữ mã hóa và bảo mật";
-        } else if (length < 15) {
+        if (length < 15) {
             score = 4;
-            feedback = "Lời giải thích hơi ngắn! Thử thêm 1 ví dụ thực tế đơn giản để nhớ lâu hơn.";
-            suggestedGap = "Cần thêm ví dụ minh họa thực tế cho " + (conceptName != null ? conceptName : "bài học");
-        } else if (length < 50) {
+            feedback = "Lời giải thích hơi ngắn! Hãy thử diễn đạt từ 15 ký tự trở lên để đạt hiệu quả ghi nhớ tốt nhất.";
+            suggestedGap = "Cách bổ sung ví dụ minh họa cho " + (conceptName != null && !conceptName.isBlank() ? conceptName : "bài học");
+        } else if (wordCount < 8) {
+            score = 6;
+            feedback = "Lời giải thích tương đối ngắn gọn. Bạn có thể bổ sung 1 ví dụ đời thường để dễ hiểu hơn.";
+        } else if (length > 300) {
             score = 7;
-            feedback = "Diễn đạt khá tốt! Lời giải thích tương đối dễ hiểu như đang dạy cho học sinh 12 tuổi.";
+            feedback = "Bài giải thích rất chi tiết! Hãy chú ý đúc kết lại các ý cốt lõi sao cho thật đọng lại.";
         } else {
-            score = 9;
-            feedback = "Tuyệt vời! Bạn giải thích vô cùng chi tiết, mạch lạc và nắm vững bản chất kiến thức.";
+            score = 8;
+            feedback = "Lời giải thích mạch lạc và vừa đủ. Bạn đang áp dụng phương pháp Feynman rất hiệu quả!";
         }
 
         return new FeynmanEvaluationResponse(score, feedback, jargonWarning, suggestedGap);
