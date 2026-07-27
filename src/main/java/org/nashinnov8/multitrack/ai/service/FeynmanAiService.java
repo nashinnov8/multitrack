@@ -21,7 +21,7 @@ public class FeynmanAiService {
 
     private static final Logger log = LoggerFactory.getLogger(FeynmanAiService.class);
 
-    @Value("${gemini.api-key:}")
+    @Value("${gemini.api-key:${GEMINI_API_KEY:}}")
     private String apiKey;
 
     @Value("${gemini.model:gemini-1.5-flash}")
@@ -46,7 +46,8 @@ public class FeynmanAiService {
         }
 
         boolean isKeyPresent = apiKey != null && !apiKey.isBlank();
-        log.info("[FeynmanAiService] Evaluating explanation length: {}. Gemini API Key configured: {}", feynmanText.length(), isKeyPresent);
+        String maskedKey = isKeyPresent ? (apiKey.length() > 6 ? apiKey.substring(0, 6) + "..." : "SET") : "NONE";
+        log.info("[FeynmanAiService] Evaluating explanation. Key loaded: {}, Model: {}", maskedKey, model);
 
         // If Gemini API key is provided, call Google Gemini 1.5 Flash AI API
         if (isKeyPresent) {
@@ -54,12 +55,13 @@ public class FeynmanAiService {
                 FeynmanEvaluationResponse aiResponse = callGeminiApi(request.conceptName(), feynmanText);
                 log.info("[FeynmanAiService] Gemini API call succeeded. Score: {}", aiResponse.score());
                 return aiResponse;
+            } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+                log.error("[FeynmanAiService] Gemini API HTTP error status: {}, body: {}", httpEx.getStatusCode(), httpEx.getResponseBodyAsString());
             } catch (Exception e) {
                 log.error("[FeynmanAiService] Gemini API call failed with error: {}", e.getMessage(), e);
-                // Fallback to smart heuristic evaluation on error
             }
         } else {
-            log.warn("[FeynmanAiService] GEMINI_API_KEY is not set on server. Using heuristic evaluation fallback.");
+            log.warn("[FeynmanAiService] GEMINI_API_KEY environment variable is missing or empty. Using heuristic evaluation fallback.");
         }
 
         // Smart Heuristic Evaluation Fallback
