@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.nashinnov8.multitrack.ai.dto.request.FeynmanEvaluationRequest;
 import org.nashinnov8.multitrack.ai.dto.response.FeynmanEvaluationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @Service
 public class FeynmanAiService {
+
+    private static final Logger log = LoggerFactory.getLogger(FeynmanAiService.class);
 
     @Value("${gemini.api-key:}")
     private String apiKey;
@@ -41,13 +45,21 @@ public class FeynmanAiService {
             );
         }
 
+        boolean isKeyPresent = apiKey != null && !apiKey.isBlank();
+        log.info("[FeynmanAiService] Evaluating explanation length: {}. Gemini API Key configured: {}", feynmanText.length(), isKeyPresent);
+
         // If Gemini API key is provided, call Google Gemini 1.5 Flash AI API
-        if (apiKey != null && !apiKey.isBlank()) {
+        if (isKeyPresent) {
             try {
-                return callGeminiApi(request.conceptName(), feynmanText);
+                FeynmanEvaluationResponse aiResponse = callGeminiApi(request.conceptName(), feynmanText);
+                log.info("[FeynmanAiService] Gemini API call succeeded. Score: {}", aiResponse.score());
+                return aiResponse;
             } catch (Exception e) {
+                log.error("[FeynmanAiService] Gemini API call failed with error: {}", e.getMessage(), e);
                 // Fallback to smart heuristic evaluation on error
             }
+        } else {
+            log.warn("[FeynmanAiService] GEMINI_API_KEY is not set on server. Using heuristic evaluation fallback.");
         }
 
         // Smart Heuristic Evaluation Fallback
@@ -61,7 +73,12 @@ public class FeynmanAiService {
             You are an expert Feynman Technique tutor. Evaluate this student's explanation for topic: "%s".
             Student Explanation: "%s"
 
-            Return ONLY a JSON object with these exact keys:
+            Critically analyze the explanation:
+            1. If the student uses overly complex jargon (e.g., "asynchronous KMS envelope encryption", "TLS mutual handshake", "OAuth2 grant type"), warn them in 'jargonWarning' in Vietnamese and penalize the 'score' (give 5 or 6 out of 10).
+            2. If the explanation is simple, clear, and uses real-world analogies, give a high score (8-10).
+            3. If the explanation is incorrect or vague, suggest a specific knowledge gap topic in 'suggestedGap' in Vietnamese.
+
+            Return ONLY a valid JSON object with these exact keys:
             {
               "score": <integer 1-10 rating simplicity and clarity>,
               "feedback": "<1-2 sentence constructive feedback in Vietnamese>",
@@ -103,7 +120,12 @@ public class FeynmanAiService {
         String jargonWarning = "";
         String suggestedGap = "";
 
-        if (length < 15) {
+        if (text.toLowerCase().contains("asynchronous") || text.toLowerCase().contains("kms") || text.toLowerCase().contains("tls") || text.toLowerCase().contains("oauth")) {
+            score = 5;
+            feedback = "Lời giải thích chứa khá nhiều thuật ngữ chuyên ngành phức tạp.";
+            jargonWarning = "Từ ngữ như KMS, TLS handshake, OAuth2 quá hàn lâm. Hãy thử giải thích đơn giản bằng ví dụ chiếc két sắt!";
+            suggestedGap = "Cách đơn giản hóa các thuật ngữ mã hóa và bảo mật";
+        } else if (length < 15) {
             score = 4;
             feedback = "Lời giải thích hơi ngắn! Thử thêm 1 ví dụ thực tế đơn giản để nhớ lâu hơn.";
             suggestedGap = "Cần thêm ví dụ minh họa thực tế cho " + (conceptName != null ? conceptName : "bài học");
@@ -113,10 +135,6 @@ public class FeynmanAiService {
         } else {
             score = 9;
             feedback = "Tuyệt vời! Bạn giải thích vô cùng chi tiết, mạch lạc và nắm vững bản chất kiến thức.";
-        }
-
-        if (text.toLowerCase().contains("polymorphism") || text.toLowerCase().contains("abstraction") || text.toLowerCase().contains("async/await")) {
-            jargonWarning = "Có chứa một số thuật ngữ tiếng Anh chuyên ngành. Bạn có thể giải thích bằng ngôn ngữ đời thường!";
         }
 
         return new FeynmanEvaluationResponse(score, feedback, jargonWarning, suggestedGap);
