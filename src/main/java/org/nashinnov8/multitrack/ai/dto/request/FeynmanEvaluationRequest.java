@@ -4,5 +4,6 @@ public record FeynmanEvaluationRequest(
     String conceptName,
     String explainSimply,
     String whatLearned,
-    String note
+    String note,
+    String lang
 ) {}
