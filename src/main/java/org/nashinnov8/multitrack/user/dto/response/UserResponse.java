@@ -11,6 +11,7 @@ public record UserResponse(
         int totalExp,
         int level,
         int globalStreak,
+        int streakFreezeCount,
         String timezone) {
 
     public static UserResponse from(User user) {
@@ -22,6 +23,7 @@ public record UserResponse(
                 user.getTotalExp(),
                 user.getLevel(),
                 user.getGlobalStreak(),
+                user.getStreakFreezeCount(),
                 user.getTimezone());
     }
 }

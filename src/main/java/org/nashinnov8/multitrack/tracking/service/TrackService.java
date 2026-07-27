@@ -122,27 +122,44 @@ public class TrackService {
                   "Concept not found with id: " + request.conceptId()));
     }
 
-    // 1. TÍNH TOÁN STREAK DỰA TRÊN DỮ LIỆU CŨ (TRƯỚC KHI CẬP NHẬT)
+    // 1. STREAK & CALENDAR GAME BALANCE
     User user = track.getUser();
-    ZoneId userZone = ZoneId.of(user.getTimezone()); // Dùng timezone của User
+    ZoneId userZone = ZoneId.of(user.getTimezone() != null ? user.getTimezone() : "Asia/Ho_Chi_Minh");
     LocalDate today = LocalDate.now(userZone);
     LocalDate lastDate = track.getLastActivityAt() != null
             ? track.getLastActivityAt().atZone(userZone).toLocalDate()
             : null;
 
-    if (lastDate == null || lastDate.equals(today.minusDays(1))) {
-        // Mới chơi, hoặc hôm qua vừa chơi -> Tăng streak
-        track.setCurrentStreak(track.getCurrentStreak() + 1);
-    } else if (!lastDate.equals(today)) {
-        // Bỏ bê quá 1 ngày -> Reset về 1
-        track.setCurrentStreak(1);
-    }
+    boolean isFirstCheckInToday = lastDate == null || !lastDate.equals(today);
 
-    // Cập nhật kỷ lục streak dài nhất
+    if (isFirstCheckInToday) {
+        if (lastDate == null || lastDate.equals(today.minusDays(1))) {
+            // Checked in yesterday or brand new ➔ Increment streak +1
+            track.setCurrentStreak(track.getCurrentStreak() + 1);
+            user.setGlobalStreak(user.getGlobalStreak() + 1);
+        } else {
+            // Missed > 1 day ➔ Check Streak Freeze Protection!
+            if (user.getStreakFreezeCount() > 0) {
+                user.setStreakFreezeCount(user.getStreakFreezeCount() - 1);
+                // Freeze used, preserve current streak!
+            } else {
+                track.setCurrentStreak(1);
+                user.setGlobalStreak(1);
+            }
+        }
+    }
+    // If already checked in today: streak remains unchanged (Max 1 streak day per calendar day)
+
     track.setLongestStreak(Math.max(track.getLongestStreak(), track.getCurrentStreak()));
 
-    // 2. TẠO LOG MỚI (+150 EXP per Feynman Check-in)
-    int expEarned = 150;
+    // 2. FEYNMAN QUALITY THRESHOLD CHECK (Min 15 chars)
+    String feynmanText = (request.explainSimply() != null ? request.explainSimply() : "")
+            + (request.whatLearned() != null ? request.whatLearned() : "")
+            + (request.note() != null ? request.note() : "");
+
+    boolean isQualityCheckIn = feynmanText.trim().length() >= 15;
+    int expEarned = isQualityCheckIn ? 150 : 20;
+
     ActivityLog newLog = ActivityLog.builder()
             .track(track)
             .concept(concept)

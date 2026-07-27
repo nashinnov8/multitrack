@@ -1,6 +1,7 @@
 package org.nashinnov8.multitrack.user.service;
 
 import java.util.UUID;
+import org.nashinnov8.multitrack.common.exception.BusinessException;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
 import org.nashinnov8.multitrack.user.domain.User;
 import org.nashinnov8.multitrack.user.dto.request.UpdateUserRequest;
@@ -36,6 +37,21 @@ public class UserService {
             user.setTimezone(request.timezone());
         }
 
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserResponse buyStreakFreeze(UUID userId) {
+        User user = userRepository
+                .findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        if (user.getTotalExp() < 500) {
+            throw new BusinessException("Cần tối thiểu 500 EXP để mua 1 Khiên Bảo Vệ Streak (Bạn hiện có " + user.getTotalExp() + " EXP)");
+        }
+
+        user.setTotalExp(user.getTotalExp() - 500);
+        user.setStreakFreezeCount(user.getStreakFreezeCount() + 1);
         return UserResponse.from(userRepository.save(user));
     }
 }

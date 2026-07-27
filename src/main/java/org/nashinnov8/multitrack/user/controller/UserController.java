@@ -39,6 +39,12 @@ public class UserController {
         return ResponseEntity.ok(new ApiResponse<>("User profile updated successfully", user));
     }
 
+    @PostMapping("/{id}/buy-streak-freeze")
+    public ResponseEntity<ApiResponse<UserResponse>> buyStreakFreeze(@PathVariable UUID id) {
+        UserResponse user = userService.buyStreakFreeze(id);
+        return ResponseEntity.ok(new ApiResponse<>("Streak Freeze purchased successfully", user));
+    }
+
     @GetMapping("/{id}/badges")
     public ResponseEntity<ApiResponse<List<UserBadgeResponse>>> getUserBadges(@PathVariable UUID id) {
         List<UserBadgeResponse> badges = badgeService.getBadgesForUser(id);

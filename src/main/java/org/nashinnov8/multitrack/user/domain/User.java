@@ -43,6 +43,10 @@ public class User extends BaseEntity {
 
   @Builder.Default
   @Column(nullable = false)
+  private int streakFreezeCount = 0;
+
+  @Builder.Default
+  @Column(nullable = false)
   private String timezone = "Asia/Ho_Chi_Minh";
 
   @Builder.Default
