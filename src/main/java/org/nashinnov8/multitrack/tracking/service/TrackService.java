@@ -160,10 +160,18 @@ public class TrackService {
     boolean isQualityCheckIn = feynmanText.trim().length() >= 15;
     int expEarned = isQualityCheckIn ? 150 : 20;
 
+    String effectiveNote = (request.note() != null && !request.note().isBlank())
+            ? request.note()
+            : (request.explainSimply() != null && !request.explainSimply().isBlank()
+                ? request.explainSimply()
+                : (request.whatLearned() != null && !request.whatLearned().isBlank()
+                    ? request.whatLearned()
+                    : "Feynman Check-in"));
+
     ActivityLog newLog = ActivityLog.builder()
             .track(track)
             .concept(concept)
-            .note(request.note())
+            .note(effectiveNote)
             .whatLearned(request.whatLearned())
             .explainSimply(request.explainSimply())
             .gapsFound(request.gapsFound())
