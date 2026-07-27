@@ -13,8 +13,10 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class FeynmanAiService {
@@ -24,7 +26,7 @@ public class FeynmanAiService {
     @Value("${gemini.api-key:${GEMINI_API_KEY:}}")
     private String apiKey;
 
-    @Value("${gemini.model:gemini-1.5-flash}")
+    @Value("${gemini.model:gemini-1.5-flash-latest}")
     private String model;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -47,9 +49,9 @@ public class FeynmanAiService {
 
         boolean isKeyPresent = apiKey != null && !apiKey.isBlank();
         String maskedKey = isKeyPresent ? (apiKey.length() > 6 ? apiKey.substring(0, 6) + "..." : "SET") : "NONE";
-        log.info("[FeynmanAiService] Evaluating explanation. Key loaded: {}, Model: {}", maskedKey, model);
+        log.info("[FeynmanAiService] Evaluating explanation. Key loaded: {}, Preferred Model: {}", maskedKey, model);
 
-        // If Gemini API key is provided, call Google Gemini 1.5 Flash AI API
+        // If Gemini API key is provided, call Google Gemini AI API
         if (isKeyPresent) {
             try {
                 FeynmanEvaluationResponse aiResponse = callGeminiApi(request.conceptName(), feynmanText);
@@ -69,7 +71,40 @@ public class FeynmanAiService {
     }
 
     private FeynmanEvaluationResponse callGeminiApi(String conceptName, String feynmanText) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+        Set<String> candidateModels = new LinkedHashSet<>();
+        candidateModels.add(model);
+        candidateModels.add("gemini-1.5-flash-latest");
+        candidateModels.add("gemini-2.0-flash-exp");
+        candidateModels.add("gemini-2.0-flash");
+        candidateModels.add("gemini-1.5-flash");
+        candidateModels.add("gemini-1.5-pro-latest");
+        candidateModels.add("gemini-1.5-pro");
+
+        Exception lastException = null;
+
+        for (String targetModel : candidateModels) {
+            try {
+                return tryCallModel(targetModel, conceptName, feynmanText);
+            } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+                lastException = httpEx;
+                if (httpEx.getStatusCode().value() == 404) {
+                    log.warn("[FeynmanAiService] Model '{}' returned 404 NOT_FOUND, trying next candidate model...", targetModel);
+                    continue;
+                }
+                throw httpEx;
+            } catch (Exception e) {
+                lastException = e;
+            }
+        }
+
+        if (lastException != null) {
+            throw lastException;
+        }
+        throw new IllegalStateException("Failed to get response from Gemini API");
+    }
+
+    private FeynmanEvaluationResponse tryCallModel(String targetModel, String conceptName, String feynmanText) throws Exception {
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + targetModel + ":generateContent?key=" + apiKey;
 
         String prompt = """
             You are an expert Feynman Technique tutor. Evaluate this student's explanation for topic: "%s".
@@ -112,6 +147,7 @@ public class FeynmanAiService {
         String jargonWarning = evalJson.path("jargonWarning").asText("");
         String suggestedGap = evalJson.path("suggestedGap").asText("");
 
+        log.info("[FeynmanAiService] Successfully called model '{}'", targetModel);
         return new FeynmanEvaluationResponse(score, feedback, jargonWarning, suggestedGap);
     }
 
