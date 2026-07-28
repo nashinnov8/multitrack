@@ -11,4 +11,6 @@ public interface UserBadgeRepository extends JpaRepository<UserBadge, UUID> {
     List<UserBadge> findByUserId(UUID userId);
 
     Page<UserBadge> findByUserId(UUID userId, Pageable pageable);
+
+    boolean existsByUserIdAndBadgeId(UUID userId, UUID badgeId);
 }

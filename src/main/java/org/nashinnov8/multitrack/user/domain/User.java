@@ -42,6 +42,10 @@ public class User extends BaseEntity {
   private int globalStreak = 0;
 
   @Builder.Default
+  @Column(name = "streak_freeze_count", nullable = false, columnDefinition = "integer default 0")
+  private int streakFreezeCount = 0;
+
+  @Builder.Default
   @Column(nullable = false)
   private String timezone = "Asia/Ho_Chi_Minh";
 
