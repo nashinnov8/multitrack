@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - .env.dev
+      - .env
     depends_on:
       multitrack-postgres:
         condition: service_started
@@ -16,7 +16,7 @@ services:
     container_name: multitrack_database
     restart: always
     env_file:
-      - .env.dev
+      - .env
     ports:
       - "5432:5432"
     volumes:
