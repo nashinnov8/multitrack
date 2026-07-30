@@ -19,18 +19,11 @@ public class EmailService {
   @Value("${BREVO_API_KEY:}")
   private String brevoApiKey;
 
-  @Value("${RESEND_API_KEY:${MAIL_PASSWORD:}}")
-  private String resendApiKey;
-
-  @Value("${BREVO_SENDER_EMAIL:${MAIL_FROM:onboarding@resend.dev}}")
+  @Value("${BREVO_SENDER_EMAIL:${MAIL_FROM:}}")
   private String fromEmail;
 
   @Value("${app.frontend.url:http://localhost:3000}")
   private String frontendUrl;
-
-  private final RestClient resendClient = RestClient.builder()
-      .baseUrl("https://api.resend.com")
-      .build();
 
   private final RestClient brevoClient = RestClient.builder()
       .baseUrl("https://api.brevo.com/v3")
@@ -118,18 +111,11 @@ public class EmailService {
   }
 
   private void dispatchEmail(String toEmail, String subject, String htmlContent) {
-    // If BREVO_API_KEY is present or key starts with xkeysib-
-    String activeBrevoKey = (brevoApiKey != null && !brevoApiKey.isBlank()) ? brevoApiKey :
-        (resendApiKey != null && resendApiKey.startsWith("xkeysib-")) ? resendApiKey : null;
-
-    if (activeBrevoKey != null) {
-      sendViaBrevoApi(activeBrevoKey, toEmail, subject, htmlContent);
-    } else {
-      sendViaResendHttpApi(toEmail, subject, htmlContent);
+    if (brevoApiKey == null || brevoApiKey.isBlank()) {
+      log.warn("[EMAIL-DEBUG] BREVO_API_KEY is missing. Skipping email sending.");
+      return;
     }
-  }
 
-  private void sendViaBrevoApi(String apiKey, String toEmail, String subject, String htmlContent) {
     try {
       String senderAddress = (fromEmail != null && fromEmail.contains("@")) 
           ? fromEmail 
@@ -146,7 +132,7 @@ public class EmailService {
 
       String response = brevoClient.post()
           .uri("/smtp/email")
-          .header("api-key", apiKey)
+          .header("api-key", brevoApiKey)
           .contentType(MediaType.APPLICATION_JSON)
           .body(body)
           .retrieve()
@@ -155,36 +141,6 @@ public class EmailService {
       log.info("[EMAIL-DEBUG] SUCCESS! Brevo API Response: {}", response);
     } catch (Exception e) {
       log.error("[EMAIL-DEBUG] ERROR! Exception sending email via Brevo API to {}: {}", toEmail, e.getMessage(), e);
-    }
-  }
-
-  private void sendViaResendHttpApi(String toEmail, String subject, String htmlContent) {
-    if (resendApiKey == null || resendApiKey.isBlank()) {
-      log.warn("[EMAIL-DEBUG] Resend API Key is missing. Skipping email sending.");
-      return;
-    }
-
-    try {
-      log.info("[EMAIL-DEBUG] Sending email via Resend HTTPS API (Port 443) to: {}", toEmail);
-      
-      Map<String, Object> body = Map.of(
-          "from", fromEmail,
-          "to", List.of(toEmail),
-          "subject", subject,
-          "html", htmlContent
-      );
-
-      String response = resendClient.post()
-          .uri("/emails")
-          .header("Authorization", "Bearer " + resendApiKey)
-          .contentType(MediaType.APPLICATION_JSON)
-          .body(body)
-          .retrieve()
-          .body(String.class);
-
-      log.info("[EMAIL-DEBUG] SUCCESS! Resend API Response: {}", response);
-    } catch (Exception e) {
-      log.error("[EMAIL-DEBUG] ERROR! Exception sending email via Resend HTTPS API to {}: {}", toEmail, e.getMessage(), e);
     }
   }
 }
