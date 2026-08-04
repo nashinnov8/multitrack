@@ -1,5 +1,6 @@
 package org.nashinnov8.multitrack.tracking.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.nashinnov8.multitrack.tracking.domain.ActivityLog;
@@ -19,4 +20,8 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, UUID> 
     Page<ActivityLog> findGapsByTrackId(@Param("trackId") UUID trackId, Pageable pageable);
 
     Page<ActivityLog> findByTrackIdOrderByCreatedAtDesc(UUID trackId, Pageable pageable);
+
+    long countByTrackUserId(UUID userId);
+
+    List<ActivityLog> findByTrackUserIdAndCreatedAtGreaterThanEqual(UUID userId, Instant startDate);
 }

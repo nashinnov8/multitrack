@@ -8,6 +8,7 @@ import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.gamification.dto.response.UserBadgeResponse;
 import org.nashinnov8.multitrack.gamification.service.BadgeService;
 import org.nashinnov8.multitrack.user.dto.request.UpdateUserRequest;
+import org.nashinnov8.multitrack.user.dto.response.ActivityHeatmapDayResponse;
 import org.nashinnov8.multitrack.user.dto.response.UserResponse;
 import org.nashinnov8.multitrack.user.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -31,12 +32,24 @@ public class UserController {
         return ResponseEntity.ok(new ApiResponse<>("User profile retrieved successfully", user));
     }
 
+    @GetMapping("/{id}/activity-heatmap")
+    public ResponseEntity<ApiResponse<List<ActivityHeatmapDayResponse>>> getActivityHeatmap(@PathVariable UUID id) {
+        List<ActivityHeatmapDayResponse> heatmap = userService.getActivityHeatmap(id);
+        return ResponseEntity.ok(new ApiResponse<>("Activity heatmap retrieved successfully", heatmap));
+    }
+
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> updateUserProfile(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateUserRequest request) {
         UserResponse user = userService.updateUser(id, request);
         return ResponseEntity.ok(new ApiResponse<>("User profile updated successfully", user));
+    }
+
+    @PostMapping("/{id}/buy-streak-freeze")
+    public ResponseEntity<ApiResponse<UserResponse>> buyStreakFreeze(@PathVariable UUID id) {
+        UserResponse user = userService.buyStreakFreeze(id);
+        return ResponseEntity.ok(new ApiResponse<>("Streak Freeze purchased successfully", user));
     }
 
     @GetMapping("/{id}/badges")

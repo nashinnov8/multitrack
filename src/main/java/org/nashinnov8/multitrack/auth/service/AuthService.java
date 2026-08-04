@@ -35,7 +35,9 @@ public class AuthService {
   private final EmailService emailService;
 
   public AuthResponse register(RegisterRequest request) {
-    if (userRepository.findByEmail(request.email()).isPresent()) {
+    String normalizedEmail = request.email() != null ? request.email().trim().toLowerCase() : "";
+
+    if (userRepository.findByEmail(normalizedEmail).isPresent()) {
       throw new RuntimeException("Email already exists");
     }
     if (userRepository.findByUsername(request.username()).isPresent()) {
@@ -47,10 +49,10 @@ public class AuthService {
 
     User user =
         User.builder()
-            .email(request.email())
+            .email(normalizedEmail)
             .password(passwordEncoder.encode(request.password()))
-            .username(request.username())
-            .displayName(request.displayName())
+            .username(request.username().trim())
+            .displayName(request.displayName() != null ? request.displayName().trim() : request.username().trim())
             .enabled(false) // Must verify email first
             .verificationToken(verificationToken)
             .verificationTokenExpiry(verificationExpiry)
@@ -85,7 +87,8 @@ public class AuthService {
   }
 
   public AuthResponse login(AuthRequest request) {
-    Optional<User> userOptional = userRepository.findByEmail(request.email());
+    String normalizedEmail = request.email() != null ? request.email().trim().toLowerCase() : "";
+    Optional<User> userOptional = userRepository.findByEmail(normalizedEmail);
 
     if (userOptional.isEmpty()
         || !passwordEncoder.matches(request.password(), userOptional.get().getPassword())) {

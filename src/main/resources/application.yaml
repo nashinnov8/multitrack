@@ -11,10 +11,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -48,3 +48,7 @@ springdoc:
     path: /swagger
   api-docs:
     path: /api-docs
+
+deepseek:
+  api-key: ${DEEPSEEK_API_KEY:}
+  model: ${DEEPSEEK_MODEL:deepseek-chat}

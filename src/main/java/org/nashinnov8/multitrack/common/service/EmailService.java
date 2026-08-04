@@ -22,7 +22,7 @@ public class EmailService {
   @Value("${RESEND_API_KEY:${MAIL_PASSWORD:}}")
   private String resendApiKey;
 
-  @Value("${MAIL_FROM:onboarding@resend.dev}")
+  @Value("${BREVO_SENDER_EMAIL:${MAIL_FROM:onboarding@resend.dev}}")
   private String fromEmail;
 
   @Value("${app.frontend.url:http://localhost:3000}")

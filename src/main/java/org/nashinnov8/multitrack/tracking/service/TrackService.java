@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.nashinnov8.multitrack.common.dto.PaginatedResponse;
 import org.nashinnov8.multitrack.common.exception.ForbiddenException;
 import org.nashinnov8.multitrack.common.exception.ResourceNotFoundException;
+import org.nashinnov8.multitrack.gamification.service.BadgeEvaluatorService;
 import org.nashinnov8.multitrack.tracking.domain.ActivityLog;
 import org.nashinnov8.multitrack.tracking.domain.Concept;
 import org.nashinnov8.multitrack.tracking.domain.Track;
@@ -34,17 +35,19 @@ public class TrackService {
   private final ActivityLogRepository activityLogRepository;
   private final UserRepository userRepository;
   private final ConceptRepository conceptRepository;
+  private final BadgeEvaluatorService badgeEvaluatorService;
 
-  // Dependency Injection thông qua Constructor
   public TrackService(
       TrackRepository trackRepository,
       ActivityLogRepository activityLogRepository,
       UserRepository userRepository,
-      ConceptRepository conceptRepository) {
+      ConceptRepository conceptRepository,
+      BadgeEvaluatorService badgeEvaluatorService) {
     this.trackRepository = trackRepository;
     this.activityLogRepository = activityLogRepository;
     this.userRepository = userRepository;
     this.conceptRepository = conceptRepository;
+    this.badgeEvaluatorService = badgeEvaluatorService;
   }
 
   @Transactional
@@ -62,6 +65,9 @@ public class TrackService {
         .build();
 
     Track savedTrack = trackRepository.save(newTrack);
+
+    // Auto-award badge for creating first track
+    badgeEvaluatorService.evaluateAndAward(existingUser.getId(), "🎯 Khởi đầu Mục tiêu");
 
     return TrackResponse.from(savedTrack);
   }
@@ -117,31 +123,56 @@ public class TrackService {
                   "Concept not found with id: " + request.conceptId()));
     }
 
-    // 1. TÍNH TOÁN STREAK DỰA TRÊN DỮ LIỆU CŨ (TRƯỚC KHI CẬP NHẬT)
+    // 1. STREAK & CALENDAR GAME BALANCE
     User user = track.getUser();
-    ZoneId userZone = ZoneId.of(user.getTimezone()); // Dùng timezone của User
+    ZoneId userZone = ZoneId.of(user.getTimezone() != null ? user.getTimezone() : "Asia/Ho_Chi_Minh");
     LocalDate today = LocalDate.now(userZone);
     LocalDate lastDate = track.getLastActivityAt() != null
             ? track.getLastActivityAt().atZone(userZone).toLocalDate()
             : null;
 
-    if (lastDate == null || lastDate.equals(today.minusDays(1))) {
-        // Mới chơi, hoặc hôm qua vừa chơi -> Tăng streak
-        track.setCurrentStreak(track.getCurrentStreak() + 1);
-    } else if (!lastDate.equals(today)) {
-        // Bỏ bê quá 1 ngày -> Reset về 1
-        track.setCurrentStreak(1);
-    }
+    boolean isFirstCheckInToday = lastDate == null || !lastDate.equals(today);
 
-    // Cập nhật kỷ lục streak dài nhất
+    if (isFirstCheckInToday) {
+        if (lastDate == null || lastDate.equals(today.minusDays(1))) {
+            // Checked in yesterday or brand new ➔ Increment streak +1
+            track.setCurrentStreak(track.getCurrentStreak() + 1);
+            user.setGlobalStreak(user.getGlobalStreak() + 1);
+        } else {
+            // Missed > 1 day ➔ Check Streak Freeze Protection!
+            if (user.getStreakFreezeCount() > 0) {
+                user.setStreakFreezeCount(user.getStreakFreezeCount() - 1);
+                // Freeze used, preserve current streak!
+            } else {
+                track.setCurrentStreak(1);
+                user.setGlobalStreak(1);
+            }
+        }
+    }
+    // If already checked in today: streak remains unchanged (Max 1 streak day per calendar day)
+
     track.setLongestStreak(Math.max(track.getLongestStreak(), track.getCurrentStreak()));
 
-    // 2. TẠO LOG MỚI
-    int expEarned = 10;
+    // 2. FEYNMAN QUALITY THRESHOLD CHECK (Min 15 chars)
+    String feynmanText = (request.explainSimply() != null ? request.explainSimply() : "")
+            + (request.whatLearned() != null ? request.whatLearned() : "")
+            + (request.note() != null ? request.note() : "");
+
+    boolean isQualityCheckIn = feynmanText.trim().length() >= 15;
+    int expEarned = isQualityCheckIn ? 150 : 20;
+
+    String effectiveNote = (request.note() != null && !request.note().isBlank())
+            ? request.note()
+            : (request.explainSimply() != null && !request.explainSimply().isBlank()
+                ? request.explainSimply()
+                : (request.whatLearned() != null && !request.whatLearned().isBlank()
+                    ? request.whatLearned()
+                    : "Feynman Check-in"));
+
     ActivityLog newLog = ActivityLog.builder()
             .track(track)
             .concept(concept)
-            .note(request.note())
+            .note(effectiveNote)
             .whatLearned(request.whatLearned())
             .explainSimply(request.explainSimply())
             .gapsFound(request.gapsFound())
@@ -158,6 +189,10 @@ public class TrackService {
     user.setTotalExp(user.getTotalExp() + expEarned);
     user.setLevel(LevelCalculator.calculateLevel(user.getTotalExp()));
     userRepository.save(user);
+
+    // Auto-eval badges (Check-in 1st, Streaks, Level, etc.)
+    int totalLogsCount = (int) activityLogRepository.countByTrackUserId(user.getId());
+    badgeEvaluatorService.evaluateUserProgress(user, 1, totalLogsCount, 0, 0, 0);
 
     return ActivityLogResponse.from(savedLog);
   }
